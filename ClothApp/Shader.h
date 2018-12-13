@@ -5,6 +5,7 @@
 struct PhongShader {
 	GLuint _handle;
 	GLint h_aPosition;
+	GLint h_aNormal;
 	GLint h_uModelViewMatrix;
 	GLint h_uProjectionMatrix;
 	//GLint h_aNormal;
@@ -15,8 +16,10 @@ struct PhongShader {
 struct PickShader {
 	GLuint _handle;
 	GLint h_aPosition; // Vertex Position
-	//GLint h_aTexCoord; // Texture Coordinates
-	//GLint h_uNumVerts; // Nuber of vertices on each edge
+	GLint h_aTexCoord; // Texture Coordinates
+	GLint h_uTessFact; // Tesselation factor = n
+	GLint h_uModelViewMatrix;
+	GLint h_uProjectionMatrix;
 	operator GLuint() const;
 	PickShader operator=(GLuint _handle);
 };
