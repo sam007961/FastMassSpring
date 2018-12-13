@@ -5,39 +5,37 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "Shader.h"
+#include "Mesh.h"
 
-// globals
+// G L O B A L S	
 // window size
 static int g_window_width = 480, g_window_height = 480;
 
 // shader files
-static const char * const g_basic_vshader = "./shaders/basic.vshader";
-static const char * const g_phong_fshader = "./shaders/phong.fshader";
-static const char * const g_pick_fshader = "./shaders/pick.fshader";
+static const char* const g_basic_vshader = "./shaders/basic.vshader";
+static const char* const g_phong_fshader = "./shaders/phong.fshader";
+static const char* const g_pick_fshader = "./shaders/pick.fshader";
 
 // shader handles
 static GLuint g_vshaderBasic, g_fshaderPhong, g_fshaderPick;
 static PhongShader g_phongShader;
 static PickShader g_pickShader;
 
-// temporary: geometry
-static int vbolen = 3;
-static int ibolen = 6;
-static float vbuff[] = {
-	-1.0f,  1.0f, 0.0f,
-	-1.0f, -1.0f, 0.0f,
-	 1.0f,  1.0f, 0.0f,
-	 1.0f, -1.0f, 0.0f,
-};
+// mesh
+static Mesh g_clothMesh;
+static mesh_data g_meshData;
 
-static unsigned int ibuff[] = {
-	0, 1, 2,
-	1, 3, 2,
-};
+// buffers
+static GLuint g_vbo, g_ibo;
 
-static GLuint vbo, ibo;
+// mesh parameters
+namespace MeshParam {
+	static const int n = 40; // n * n = m, where m = n_vertices
+}
+
 
 // state initialization
 static void initGlutState(int, char**);
@@ -64,11 +62,13 @@ int main(int argc, char** argv) {
 	try {
 		initGlutState(argc, argv);
 		glewInit();
-
 		initGLState();
+
 		initShaders();
 		initCloth();
+
 		glutMainLoop();
+
 		deleteShaders();
 		return 0;
 	}
@@ -137,15 +137,64 @@ static void initShaders() {
 }
 
 static void initCloth() {
-	// temporary: initialize vbo and ibo
-	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &ibo);
+	// generate buffers
+	glGenBuffers(1, &g_vbo);
+	glGenBuffers(1, &g_ibo);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vbuff), vbuff, GL_STATIC_DRAW);
+	// generate mesh
+	const int n = MeshParam::n;
+	const float d = 1.0f / (n - 1); // step distance
+	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-1.0f, 1.0f, 0.0f); // origin
+	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
+	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
+	std::vector<OpenMesh::VertexHandle> handle_table(n*n); // table storing vertex handles for easy grid connectivity establishment
 
-	glBindBuffer(GL_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(ibuff), ibuff, GL_STATIC_DRAW);
+	// index buffer
+	g_meshData.ibuffLen = 6 * (n - 1) * (n - 1);
+	g_meshData.ibuff = new unsigned int[g_meshData.ibuffLen];
+	unsigned int idx = 0;
+
+	for (int j = 0; j < n; j++) {
+		for (int i = 0; i < n; i++) {
+			handle_table[i + j * n] = g_clothMesh.add_vertex(o + d*i*ux + d*j*uy);
+			if (j > 0 && i < n - 1) {
+				g_clothMesh.add_face(
+					handle_table[i + j * n], 
+					handle_table[i + 1 + (j - 1) * n], 
+					handle_table[i + (j - 1) * n]
+				);
+
+				g_meshData.ibuff[idx++] = i + j * n;
+				g_meshData.ibuff[idx++] = i + 1 + (j - 1) * n;
+				g_meshData.ibuff[idx++] = i + (j - 1) * n;
+			}
+
+			if (j > 0 && i > 0) {
+				g_clothMesh.add_face(
+					handle_table[i + j * n],
+					handle_table[i + (j - 1) * n],
+					handle_table[i - 1 + j * n]
+				);
+
+				g_meshData.ibuff[idx++] = i + j * n;
+				g_meshData.ibuff[idx++] = i + (j - 1) * n;
+				g_meshData.ibuff[idx++] = i - 1 + j * n;
+			}
+		}
+	}
+
+	// extract buffers
+	g_meshData.vbuffLen = g_meshData.nbuffLen = n * n * 3;
+	g_meshData.vbuff = VERTEX_DATA(g_clothMesh);
+	//g_meshData.nbuff = NORMAL_DATA(g_clothMesh);
+
+	glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
+		g_meshData.vbuff, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, g_ibo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(unsigned int) * g_meshData.ibuffLen, 
+		g_meshData.ibuff, GL_STATIC_DRAW);
 
 	checkGlErrors();
 }
@@ -156,11 +205,11 @@ static void display() {
 	// TODO: make matrices global constants
 	static const float pi = glm::pi<float>();
 	glm::mat4 ModelViewMatrix = glm::lookAt(
-		glm::vec3(2.0f, -2.0f, 2.0f),
-		glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3(1.0f, -1.0f, 2.0f),
+		glm::vec3(0.0f, 0.0f, 1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
-	glm::mat4 ProjectionMatrix = glm::perspective(pi / 3.0f, 
+	glm::mat4 ProjectionMatrix = glm::perspective(pi / 4.0f, 
 		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 
 	// TODO: move to separate draw function
@@ -172,7 +221,7 @@ static void display() {
 		1, GL_FALSE, glm::value_ptr(ProjectionMatrix[0]));
 
 	glEnableVertexAttribArray(g_phongShader.h_aPosition);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
 	glVertexAttribPointer(g_phongShader.h_aPosition,
 		3, 
 		GL_FLOAT,
@@ -181,8 +230,8 @@ static void display() {
 		0
 	);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glDrawElements(GL_TRIANGLES, ibolen, GL_UNSIGNED_INT, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
+	glDrawElements(GL_TRIANGLES, g_meshData.ibuffLen, GL_UNSIGNED_INT, 0);
 	glDisableVertexAttribArray(g_phongShader.h_aPosition);
 	glutSwapBuffers();
 }
