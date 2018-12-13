@@ -64,6 +64,9 @@ static void reshape(int, int);
 // draw cloth function
 static void draw_cloth(bool picking);
 
+// scene update
+static void update_projection();
+
 // cleaning
 static void deleteShaders();
 //static void deleteBuffers();
@@ -211,8 +214,7 @@ static void initScene() {
 		glm::vec3(0.0f, 0.0f, 1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
-	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
-		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
+	update_projection();
 }
 
 static void display() {
@@ -225,8 +227,7 @@ static void reshape(int w, int h) {
 	g_window_width = w;
 	g_window_height = h;
 	glViewport(0, 0, w, h);
-	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
-		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
+	update_projection();
 	glutPostRedisplay();
 }
 
@@ -249,6 +250,11 @@ static void draw_cloth(bool picking) {
 		phonger.draw(g_meshData.ibuffLen);
 	}
 
+}
+
+static void update_projection() {
+	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
+		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 }
 
 static void deleteShaders() {
