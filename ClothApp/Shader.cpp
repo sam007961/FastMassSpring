@@ -2,21 +2,22 @@
 #include <vector>
 #include <iostream>
 
-PhongShader::operator GLuint() const {
+Shader::operator GLuint() const {
 	return _handle;
 }
 
-PhongShader PhongShader::operator=(GLuint _handle) {
+Shader& Shader::operator=(GLuint _handle) {
 	this->_handle = _handle;
 	return *this;
 }
 
-PickShader::operator GLuint() const {
-	return _handle;
+PhongShader& PhongShader::operator=(GLuint _handle) {
+	Shader::operator=(_handle);
+	return *this;
 }
 
-PickShader PickShader::operator=(GLuint _handle) {
-	this->_handle = _handle;
+PickShader& PickShader::operator=(GLuint _handle) {
+	Shader::operator=(_handle);
 	return *this;
 }
 

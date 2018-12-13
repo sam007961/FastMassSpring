@@ -1,27 +1,24 @@
 #pragma once
 #include <GL\glew.h>
 #include <fstream>
-
-struct PhongShader {
-	GLuint _handle;
-	GLint h_aPosition;
-	GLint h_aNormal;
+struct Shader {
+	GLuint _handle; // Shader handle
+	GLint h_aPosition; // 
 	GLint h_uModelViewMatrix;
 	GLint h_uProjectionMatrix;
-	//GLint h_aNormal;
 	operator GLuint() const;
-	PhongShader operator=(GLuint _handle);
+	Shader& operator=(GLuint _handle);
 };
 
-struct PickShader {
-	GLuint _handle;
-	GLint h_aPosition; // Vertex Position
+struct PhongShader : public Shader {
+	GLint h_aNormal;
+	PhongShader& operator=(GLuint _handle);
+};
+
+struct PickShader : public Shader {
 	GLint h_aTexCoord; // Texture Coordinates
 	GLint h_uTessFact; // Tesselation factor = n
-	GLint h_uModelViewMatrix;
-	GLint h_uProjectionMatrix;
-	operator GLuint() const;
-	PickShader operator=(GLuint _handle);
+	PickShader& operator=(GLuint _handle);
 };
 
 void compile_shader(GLuint handle, const char* source);

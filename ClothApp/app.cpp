@@ -9,10 +9,15 @@
 
 #include "Shader.h"
 #include "Mesh.h"
+#include "Renderer.h"
 
-// G L O B A L S	
+// BIG TODO (for later): refactor code to avoid using global state, and more OOP
+// G L O B A L S ///////////////////////////////////////////////////////////////////
 // window size
 static int g_window_width = 480, g_window_height = 480;
+
+// constants
+static const float PI = glm::pi<float>();
 
 // shader files
 static const char* const g_basic_vshader = "./shaders/basic.vshader";
@@ -20,27 +25,34 @@ static const char* const g_phong_fshader = "./shaders/phong.fshader";
 static const char* const g_pick_fshader = "./shaders/pick.fshader";
 
 // shader handles
-static GLuint g_vshaderBasic, g_fshaderPhong, g_fshaderPick;
-static PhongShader g_phongShader;
-static PickShader g_pickShader;
+static GLuint g_vshaderBasic, g_fshaderPhong, g_fshaderPick; // unlinked shaders
+static PhongShader g_phongShader; // linked phong shader
+static PickShader g_pickShader; // link pick shader
 
 // mesh
-static Mesh g_clothMesh;
-static mesh_data g_meshData;
+static Mesh g_clothMesh; // halfedge data structure
+static mesh_data g_meshData; // pointers to data buffers
 
-// buffers
-static GLuint g_vbo, g_ibo, g_nbo, g_tbo;
+// Render Target
+static render_target g_renderTarget; // g_vbo, g_nbo, g_tbo, g_ibo; // vertex, normal, texutre, index
 
 // mesh parameters
 namespace MeshParam {
 	static const int n = 20; // n * n = m, where m = n_vertices
 }
 
+// scene matrices
+static glm::mat4 g_ModelViewMatrix;
+static glm::mat4 g_ProjectionMatrix;
+
+// F U N C T I O N S //////////////////////////////////////////////////////////////
 // state initialization
 static void initGlutState(int, char**);
 static void initGLState();
-static void initShaders();
-static void initCloth();
+
+static void initShaders(); // Read, compile and link shaders
+static void initCloth(); // Generate cloth mesh
+static void initScene(); // Generate scene matrices
 
 // glut callbacks
 static void display();
@@ -49,17 +61,17 @@ static void reshape(int, int);
 //static void motion(int, int);
 //static void keyboard(unsigned char, int, int);
 
-//draw cloth function
+// draw cloth function
 static void draw_cloth(bool picking);
 
-// cleanup
+// cleaning
 static void deleteShaders();
 //static void deleteBuffers();
 
 // error checks
 void checkGlErrors();
 
-// main
+// M A I N //////////////////////////////////////////////////////////////////////////
 int main(int argc, char** argv) {
 	try {
 		initGlutState(argc, argv);
@@ -68,6 +80,7 @@ int main(int argc, char** argv) {
 
 		initShaders();
 		initCloth();
+		initScene();
 
 		glutMainLoop();
 
@@ -147,10 +160,10 @@ static void initShaders() {
 
 static void initCloth() {
 	// generate buffers
-	glGenBuffers(1, &g_vbo);
-	glGenBuffers(1, &g_nbo);
-	glGenBuffers(1, &g_tbo);
-	glGenBuffers(1, &g_ibo);
+	glGenBuffers(1, &g_renderTarget.vbo);
+	glGenBuffers(1, &g_renderTarget.nbo);
+	glGenBuffers(1, &g_renderTarget.tbo);
+	glGenBuffers(1, &g_renderTarget.ibo);
 
 	// request mesh properties
 	g_clothMesh.request_vertex_normals();
@@ -214,23 +227,33 @@ static void initCloth() {
 	g_meshData.nbuff = NORMAL_DATA(g_clothMesh);
 	g_meshData.tbuff = TEXTURE_DATA(g_clothMesh);
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
 		g_meshData.vbuff, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_nbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.nbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.nbuffLen,
 		g_meshData.nbuff, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_tbo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.tbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.tbuffLen,
 		g_meshData.tbuff, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ARRAY_BUFFER, g_ibo);
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.ibo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(unsigned int) * g_meshData.ibuffLen, 
 		g_meshData.ibuff, GL_STATIC_DRAW);
 
 	checkGlErrors();
+}
+
+static void initScene() {
+	g_ModelViewMatrix = glm::lookAt(
+		glm::vec3(1.0f, -1.0f, 2.0f),
+		glm::vec3(0.0f, 0.0f, 1.0f),
+		glm::vec3(0.0f, 0.0f, 1.0f)
+	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
+	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
+		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 }
 
 static void display() {
@@ -243,73 +266,30 @@ static void reshape(int w, int h) {
 	g_window_width = w;
 	g_window_height = h;
 	glViewport(0, 0, w, h);
+	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
+		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 	glutPostRedisplay();
 }
 
 // TODO: desperate need for a refactor
 static void draw_cloth(bool picking) {
-	// TODO: make matrices global constants
-	static const float pi = glm::pi<float>();
-	glm::mat4 ModelViewMatrix = glm::lookAt(
-		glm::vec3(1.0f, -1.0f, 2.0f),
-		glm::vec3(0.0f, 0.0f, 1.0f),
-		glm::vec3(0.0f, 0.0f, 1.0f)
-	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
-	glm::mat4 ProjectionMatrix = glm::perspective(pi / 4.0f,
-		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
-
-	if (picking) glUseProgram(g_pickShader);
-	else glUseProgram(g_phongShader);
-
 	
-
 	if (picking) {
-		glUniformMatrix4fv(g_pickShader.h_uModelViewMatrix,
-			1, GL_FALSE, glm::value_ptr(ModelViewMatrix[0]));
-		glUniformMatrix4fv(g_pickShader.h_uProjectionMatrix,
-			1, GL_FALSE, glm::value_ptr(ProjectionMatrix[0]));
-
-		glUniform1i(g_pickShader.h_uTessFact, MeshParam::n);
-		glEnableVertexAttribArray(g_pickShader.h_aPosition);
-		glEnableVertexAttribArray(g_pickShader.h_aTexCoord);
-
-		glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
-		glVertexAttribPointer(g_pickShader.h_aPosition,
-			3, GL_FLOAT, GL_FALSE, 0, 0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, g_tbo);
-		glVertexAttribPointer(g_pickShader.h_aTexCoord,
-		2, GL_FLOAT, GL_FALSE, 0, 0);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-		glDrawElements(GL_TRIANGLES, g_meshData.ibuffLen, GL_UNSIGNED_INT, 0);
-
-		glEnableVertexAttribArray(g_pickShader.h_aPosition);
-		glEnableVertexAttribArray(g_pickShader.h_aTexCoord);
-		return;
+		PickShadingRenderer picker(&g_pickShader);
+		picker.setModelview(g_ModelViewMatrix);
+		picker.setProjection(g_ProjectionMatrix);
+		picker.setTessFact(MeshParam::n);
+		picker.setRenderTarget(g_renderTarget);
+		picker.draw(g_meshData.ibuffLen);
+	}
+	else {
+		PhongShadingRenderer phonger(&g_phongShader);
+		phonger.setModelview(g_ModelViewMatrix);
+		phonger.setProjection(g_ProjectionMatrix);
+		phonger.setRenderTarget(g_renderTarget);
+		phonger.draw(g_meshData.ibuffLen);
 	}
 
-	glUniformMatrix4fv(g_phongShader.h_uModelViewMatrix,
-		1, GL_FALSE, glm::value_ptr(ModelViewMatrix[0]));
-	glUniformMatrix4fv(g_phongShader.h_uProjectionMatrix,
-		1, GL_FALSE, glm::value_ptr(ProjectionMatrix[0]));
-
-	glEnableVertexAttribArray(g_phongShader.h_aPosition);
-	glEnableVertexAttribArray(g_phongShader.h_aNormal);
-
-	glBindBuffer(GL_ARRAY_BUFFER, g_vbo);
-	glVertexAttribPointer(g_phongShader.h_aPosition,
-		3, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, g_nbo);
-	glVertexAttribPointer(g_phongShader.h_aNormal,
-		3, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ibo);
-	glDrawElements(GL_TRIANGLES, g_meshData.ibuffLen, GL_UNSIGNED_INT, 0);
-
-	glDisableVertexAttribArray(g_phongShader.h_aPosition);
-	glDisableVertexAttribArray(g_phongShader.h_aNormal);
 }
 
 static void deleteShaders() {
