@@ -34,7 +34,7 @@ static Mesh g_clothMesh; // halfedge data structure
 static mesh_data g_meshData; // pointers to data buffers
 
 // Render Target
-static render_target g_renderTarget; // g_vbo, g_nbo, g_tbo, g_ibo; // vertex, normal, texutre, index
+static render_target g_renderTarget; // vertex, normal, texutre, index
 
 // mesh parameters
 namespace MeshParam {
@@ -165,61 +165,19 @@ static void initCloth() {
 	glGenBuffers(1, &g_renderTarget.tbo);
 	glGenBuffers(1, &g_renderTarget.ibo);
 
-	// request mesh properties
-	g_clothMesh.request_vertex_normals();
-	g_clothMesh.request_vertex_texcoords2D();
 
 	// generate mesh
 	const int n = MeshParam::n;
-	const float d = 1.0f / (n - 1); // step distance
-	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-1.0f, 1.0f, 0.0f); // origin
-	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
-	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
-	std::vector<OpenMesh::VertexHandle> handle_table(n*n); // table storing vertex handles for easy grid connectivity establishment
+	MeshBuilder::buildGridNxN(g_clothMesh, n);
 
-	// index buffer
+	// build index buffer
 	g_meshData.ibuffLen = 6 * (n - 1) * (n - 1);
 	g_meshData.ibuff = new unsigned int[g_meshData.ibuffLen];
-	unsigned int idx = 0;
+	
+	GridFillerIBuffNxN filler(g_meshData.ibuff, n);
+	filler.fill();
 
-	for (int j = 0; j < n; j++) {
-		for (int i = 0; i < n; i++) {
-			handle_table[i + j * n] = g_clothMesh.add_vertex(o + d*i*ux + d*j*uy); // add vertex
-			g_clothMesh.set_texcoord2D(handle_table[i + j * n], OpenMesh::Vec2f(d*i, d*j)); // add texture coordinates
-
-			//add connectivity
-			if (j > 0 && i < n - 1) {
-				g_clothMesh.add_face(
-					handle_table[i + j * n], 
-					handle_table[i + 1 + (j - 1) * n], 
-					handle_table[i + (j - 1) * n]
-				);
-
-				g_meshData.ibuff[idx++] = i + j * n;
-				g_meshData.ibuff[idx++] = i + 1 + (j - 1) * n;
-				g_meshData.ibuff[idx++] = i + (j - 1) * n;
-			}
-
-			if (j > 0 && i > 0) {
-				g_clothMesh.add_face(
-					handle_table[i + j * n],
-					handle_table[i + (j - 1) * n],
-					handle_table[i - 1 + j * n]
-				);
-
-				g_meshData.ibuff[idx++] = i + j * n;
-				g_meshData.ibuff[idx++] = i + (j - 1) * n;
-				g_meshData.ibuff[idx++] = i - 1 + j * n;
-			}
-		}
-	}
-
-	// calculate and update normals
-	g_clothMesh.request_face_normals();
-	g_clothMesh.update_normals();
-	g_clothMesh.release_face_normals();
-
-	// extract buffers
+	// extract data buffers
 	g_meshData.vbuffLen = g_meshData.nbuffLen = n * n * 3;
 	g_meshData.tbuffLen = n * n * 2;
 
@@ -227,6 +185,7 @@ static void initCloth() {
 	g_meshData.nbuff = NORMAL_DATA(g_clothMesh);
 	g_meshData.tbuff = TEXTURE_DATA(g_clothMesh);
 
+	// fill render target
 	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
 		g_meshData.vbuff, GL_STATIC_DRAW);
