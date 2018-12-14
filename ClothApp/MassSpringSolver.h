@@ -32,8 +32,8 @@ struct mass_spring_system {
 		float time_step,             // time step
 		EdgeList spring_list,        // spring edge list
 		VectorXf rest_lengths,       // spring rest lengths
-		VectorXf stiffness_list,     // spring stiffnesses
-		SparseMatrix M,              // mass matrix
+		VectorXf stiffnesses,        // spring stiffnesses
+		VectorXf masses,             // point masses
 		VectorXf fext,               // external forces
 		float damping_factor         // damping factor
 	);
@@ -70,8 +70,15 @@ public:
 	void timedSolve(unsigned int ms);
 };
 
-
 class MassSpringBuilder {
+private:
+	typedef Eigen::Vector3f Vector3f;
+	typedef Eigen::VectorXf VectorXf;
+	typedef std::pair<unsigned int, unsigned int> Edge;
+	typedef std::vector<Edge> EdgeList;
+	typedef Eigen::Triplet<float> Triplet;
+	typedef std::vector<Triplet> TripletList;
+
 public:
 	static mass_spring_system* UniformGrid(
 		unsigned int n,          // grid size

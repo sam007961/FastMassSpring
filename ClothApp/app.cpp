@@ -10,6 +10,7 @@
 #include "Shader.h"
 #include "Mesh.h"
 #include "Renderer.h"
+#include "MassSpringSolver.h"
 
 // BIG TODO (for later): refactor code to avoid using global state, and more OOP
 // G L O B A L S ///////////////////////////////////////////////////////////////////
@@ -38,8 +39,14 @@ static mesh_data g_meshData; // pointers to data buffers
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
 // mesh parameters
-namespace MeshParam {
-	static const int n = 20; // n * n = m, where m = n_vertices
+namespace SystemParam {
+	static const int n = 3; // must be odd, n * n = n_vertices
+	static const float h = 0.01f;
+	static const float r = 2.0f / 3;
+	static const float k = 1.0f;
+	static const float m = 1;
+	static const float a = 0.95;
+	static const float g = 0;
 }
 
 // scene matrices
@@ -67,6 +74,8 @@ static void drawCloth(bool picking);
 
 // scene update
 static void updateProjection();
+static void updateRenderTarget();
+static void animateCloth();
 
 // cleaning
 static void deleteShaders();
@@ -85,6 +94,46 @@ int main(int argc, char** argv) {
 		initShaders();
 		initCloth();
 		initScene();
+
+		// temp test
+		auto temp = MassSpringBuilder::UniformGrid(
+			SystemParam::n,
+			SystemParam::h,
+			SystemParam::r,
+			SystemParam::k,
+			SystemParam::m,
+			SystemParam::a,
+			SystemParam::g
+		);
+		MassSpringSolver solver(temp, g_meshData.vbuff);
+		solver.solve(5);
+
+		////fix one point
+		//g_meshData.vbuff[0] = -1.0f;
+		//g_meshData.vbuff[0] = 1.0f;
+		//g_meshData.vbuff[0] = 0.0f;
+
+		//glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
+		//glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
+		//	g_meshData.vbuff, GL_STATIC_DRAW);
+		//// calculate normals
+		//g_clothMesh.request_face_normals();
+		//g_clothMesh.update_normals();
+		//g_clothMesh.release_face_normals();
+
+
+		//solver.solve(5);
+		////fix one point
+		//g_meshData.vbuff[0] = -1.0f;
+		//g_meshData.vbuff[0] = 1.0f;
+		//g_meshData.vbuff[0] = 0.0f;
+		//glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
+		//glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
+		//	g_meshData.vbuff, GL_STATIC_DRAW);
+		//// calculate normals
+		//g_clothMesh.request_face_normals();
+		//g_clothMesh.update_normals();
+		//g_clothMesh.release_face_normals();
 
 		glutMainLoop();
 
@@ -171,15 +220,14 @@ static void initCloth() {
 
 
 	// generate mesh
-	const int n = MeshParam::n;
+	const int n = SystemParam::n;
 	MeshBuilder::buildGridNxN(g_clothMesh, n);
 
 	// build index buffer
 	g_meshData.ibuffLen = 6 * (n - 1) * (n - 1);
 	g_meshData.ibuff = new unsigned int[g_meshData.ibuffLen];
 	
-	GridFillerIBuffNxN filler(g_meshData.ibuff, n);
-	filler.fill();
+	MeshBuilder::buildGridIBuffNxN(g_meshData.ibuff, n);
 
 	// extract data buffers
 	g_meshData.vbuffLen = g_meshData.nbuffLen = n * n * 3;
@@ -220,7 +268,7 @@ static void initScene() {
 
 static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	drawCloth(true);
+	drawCloth(false);
 	glutSwapBuffers();
 }
 
@@ -238,7 +286,7 @@ static void drawCloth(bool picking) {
 		PickShadingRenderer picker(&g_pickShader);
 		picker.setModelview(g_ModelViewMatrix);
 		picker.setProjection(g_ProjectionMatrix);
-		picker.setTessFact(MeshParam::n);
+		picker.setTessFact(SystemParam::n);
 		picker.setRenderTarget(g_renderTarget);
 		picker.draw(g_meshData.ibuffLen);
 	}

@@ -1,6 +1,5 @@
 #pragma once
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
-#include "GridFiller.h"
 
 // Mesh type
 typedef OpenMesh::TriMesh_ArrayKernelT<> Mesh;
@@ -27,30 +26,5 @@ struct mesh_data {
 class MeshBuilder {
 public:
 	static void buildGridNxN(Mesh& mesh, int N);
-};
-
-class GridFillerMeshNxN : public GridFillerNxN {
-private:
-	const float d = 1.0f / (n - 1); // step distance
-	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-1.0f, 1.0f, 0.0f); // origin
-	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
-	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
-	std::vector<OpenMesh::VertexHandle> handle_table; // table storing vertex handles for easy grid connectivity establishment
-	Mesh& mesh;
-
-	virtual void fill_cell(int i, int j);
-
-public:
-	GridFillerMeshNxN(Mesh& mesh, int n);
-};
-
-class GridFillerIBuffNxN : public GridFillerNxN {
-private:
-	unsigned int idx;
-	unsigned int* ibuff;
-	
-	virtual void fill_cell(int i, int j);
-
-public:
-	GridFillerIBuffNxN(unsigned int* ibuff, int n);
+	static void buildGridIBuffNxN(unsigned int* ibuff, int N);
 };
