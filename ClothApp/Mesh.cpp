@@ -22,23 +22,23 @@ GridFillerMeshNxN::GridFillerMeshNxN(Mesh& mesh, int n)
 }
 
 void GridFillerMeshNxN::fill_cell(int i, int j) {
-	handle_table[i + j * n] = mesh.add_vertex(o + d*i*ux + d*j*uy); // add vertex
-	mesh.set_texcoord2D(handle_table[i + j * n], OpenMesh::Vec2f(d*i, d*j)); // add texture coordinates
+	handle_table[j + i * n] = mesh.add_vertex(o + d*j*ux + d*i*uy); // add vertex
+	mesh.set_texcoord2D(handle_table[j + i * n], OpenMesh::Vec2f(d*j, d*i)); // add texture coordinates
 
 	//add connectivity
-	if (j > 0 && i < n - 1) {
+	if (i > 0 && j < n - 1) {
 		mesh.add_face(
-			handle_table[i + j * n],
-			handle_table[i + 1 + (j - 1) * n],
-			handle_table[i + (j - 1) * n]
+			handle_table[j + i * n],
+			handle_table[j + 1 + (i - 1) * n],
+			handle_table[j + (i - 1) * n]
 		);
 	}
 
 	if (j > 0 && i > 0) {
 		mesh.add_face(
-			handle_table[i + j * n],
-			handle_table[i + (j - 1) * n],
-			handle_table[i - 1 + j * n]
+			handle_table[j + i * n],
+			handle_table[j + (i - 1) * n],
+			handle_table[j - 1 + i * n]
 		);
 	}
 }
@@ -47,15 +47,15 @@ GridFillerIBuffNxN::GridFillerIBuffNxN(unsigned int* ibuff, int n)
 	: GridFillerNxN(n), ibuff(ibuff) {}
 
 void GridFillerIBuffNxN::fill_cell(int i, int j) {
-	if (j > 0 && i < n - 1) {
-		ibuff[idx++] = i + j * n;
-		ibuff[idx++] = i + 1 + (j - 1) * n;
-		ibuff[idx++] = i + (j - 1) * n;
+	if (i > 0 && j < n - 1) {
+		ibuff[idx++] = j + i * n;
+		ibuff[idx++] = j + 1 + (i - 1) * n;
+		ibuff[idx++] = j + (i - 1) * n;
 	}
 
 	if (j > 0 && i > 0) {
-		ibuff[idx++] = i + j * n;
-		ibuff[idx++] = i + (j - 1) * n;
-		ibuff[idx++] = i - 1 + j * n;
+		ibuff[idx++] = j + i * n;
+		ibuff[idx++] = j + (i - 1) * n;
+		ibuff[idx++] = j - 1 + i * n;
 	}
 }

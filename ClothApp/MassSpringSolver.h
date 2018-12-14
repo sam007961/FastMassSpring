@@ -6,7 +6,10 @@
 struct mass_spring_system { 
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
 	typedef Eigen::VectorXf VectorXf;
-	typedef std::vector<std::pair<unsigned int, unsigned int> > EdgeList;
+	typedef std::pair<unsigned int, unsigned int> Edge;
+	typedef std::vector<Edge> EdgeList;
+	typedef Eigen::Triplet<float> Triplet;
+	typedef std::vector<Triplet> TripletList;
 	
 	// parameters
 	unsigned int n_points; // number of points
@@ -29,8 +32,8 @@ struct mass_spring_system {
 		float time_step,             // time step
 		EdgeList spring_list,        // spring edge list
 		VectorXf rest_lengths,       // spring rest lengths
-		VectorXf stiffnesses,        // spring stiffnesses
-		VectorXf M,                  // node masses
+		VectorXf stiffness_list,     // spring stiffnesses
+		SparseMatrix M,              // mass matrix
 		VectorXf fext,               // external forces
 		float damping_factor         // damping factor
 	);
@@ -43,16 +46,17 @@ private:
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
 	typedef Eigen::SimplicialCholesky<Eigen::SparseMatrix<float> > Cholesky;
 	typedef Eigen::Map<Eigen::VectorXf> Map;
+	typedef std::pair<unsigned int, unsigned int> Edge;
 
 	// system
 	mass_spring_system* system;
 	Cholesky system_matrix;
 
 	// state
-	Map current_state;
-	VectorXf prev_state;
-	VectorXf spring_directions;
-	VectorXf inertial_term;
+	Map current_state; // q(n), current state
+	VectorXf prev_state; // q(n - 1), previous state
+	VectorXf spring_directions; // d, spring directions
+	VectorXf inertial_term; // M * y, y = (a + 1) * q(n) - a * q(n - 1)
 
 	// steps
 	void globalStep();
@@ -76,7 +80,6 @@ public:
 		float stiffness,         // spring stiffness
 		float mass,              // node mass
 		float damping_factor,    // damping factor
-		float gravity,           // gravitationl force (-z axis)
-		float* points            // vertex buffer
+		float gravity            // gravitationl force (-z axis)
 	);
 };

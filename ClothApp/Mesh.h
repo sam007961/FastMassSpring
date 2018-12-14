@@ -1,5 +1,4 @@
 #pragma once
-#define _USE_MATH_DEFINES
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include "GridFiller.h"
 
