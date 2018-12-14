@@ -19,6 +19,7 @@ static int g_window_width = 480, g_window_height = 480;
 // constants
 static const float PI = glm::pi<float>();
 
+// TODO: refactor to remove some shader globals
 // shader files
 static const char* const g_basic_vshader = "./shaders/basic.vshader";
 static const char* const g_phong_fshader = "./shaders/phong.fshader";
@@ -62,10 +63,10 @@ static void reshape(int, int);
 //static void keyboard(unsigned char, int, int);
 
 // draw cloth function
-static void draw_cloth(bool picking);
+static void drawCloth(bool picking);
 
 // scene update
-static void update_projection();
+static void updateProjection();
 
 // cleaning
 static void deleteShaders();
@@ -214,12 +215,12 @@ static void initScene() {
 		glm::vec3(0.0f, 0.0f, 1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
-	update_projection();
+	updateProjection();
 }
 
 static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	draw_cloth(false);
+	drawCloth(false);
 	glutSwapBuffers();
 }
 
@@ -227,12 +228,11 @@ static void reshape(int w, int h) {
 	g_window_width = w;
 	g_window_height = h;
 	glViewport(0, 0, w, h);
-	update_projection();
+	updateProjection();
 	glutPostRedisplay();
 }
 
-// TODO: desperate need for a refactor
-static void draw_cloth(bool picking) {
+static void drawCloth(bool picking) {
 	
 	if (picking) {
 		PickShadingRenderer picker(&g_pickShader);
@@ -252,7 +252,7 @@ static void draw_cloth(bool picking) {
 
 }
 
-static void update_projection() {
+static void updateProjection() {
 	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
 		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 }

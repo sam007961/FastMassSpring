@@ -42,7 +42,7 @@
     <ClCompile Include="GridFiller.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MassSpringSystem.cpp">
+    <ClCompile Include="MassSpringSolver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -61,10 +61,10 @@
     <ClInclude Include="Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MassSpringSystem.h">
+    <ClInclude Include="GridFiller.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GridFiller.h">
+    <ClInclude Include="MassSpringSolver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

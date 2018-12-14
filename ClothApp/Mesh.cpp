@@ -10,7 +10,7 @@ void MeshBuilder::buildGridNxN(Mesh& mesh, int n) {
 	GridFillerMeshNxN filler(mesh, n);
 	filler.fill();
 
-	// calculate and update normals
+	// calculate normals
 	mesh.request_face_normals();
 	mesh.update_normals();
 	mesh.release_face_normals();
