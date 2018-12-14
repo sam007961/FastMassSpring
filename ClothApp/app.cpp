@@ -14,42 +14,48 @@
 
 // BIG TODO (for later): refactor code to avoid using global state, and more OOP
 // G L O B A L S ///////////////////////////////////////////////////////////////////
-// window size
+// Window Size
 static int g_window_width = 480, g_window_height = 480;
 
-// constants
+// Constants
 static const float PI = glm::pi<float>();
 
 // TODO: refactor to remove some shader globals
-// shader files
+// Shader Files
 static const char* const g_basic_vshader = "./shaders/basic.vshader";
 static const char* const g_phong_fshader = "./shaders/phong.fshader";
 static const char* const g_pick_fshader = "./shaders/pick.fshader";
 
-// shader handles
+// Shader Handles
 static GLuint g_vshaderBasic, g_fshaderPhong, g_fshaderPick; // unlinked shaders
 static PhongShader g_phongShader; // linked phong shader
 static PickShader g_pickShader; // link pick shader
 
-// mesh
+// Mesh
 static Mesh g_clothMesh; // halfedge data structure
 static mesh_data g_meshData; // pointers to data buffers
 
 // Render Target
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
-// mesh parameters
+// Mass Spring System
+mass_spring_system* g_system;
+MassSpringSolver* g_solver;
+
+float g_temp1[3];
+float g_temp2[3];
+// System parameters
 namespace SystemParam {
-	static const int n = 3; // must be odd, n * n = n_vertices
-	static const float h = 0.01f;
-	static const float r = 2.0f / 3;
-	static const float k = 1.0f;
-	static const float m = 1;
-	static const float a = 0.95;
-	static const float g = 0;
+	static const int n = 7; // must be odd, n * n = n_vertices
+	static const float h = 0.08f;
+	static const float r = 2.0f / n;
+	static const float k = 10000.0f;
+	static const float m = 1.0f / (n * n);
+	static const float a = 1.0f;
+	static const float g = 9.0f * m;
 }
 
-// scene matrices
+// Scene matrices
 static glm::mat4 g_ModelViewMatrix;
 static glm::mat4 g_ProjectionMatrix;
 
@@ -71,11 +77,11 @@ static void reshape(int, int);
 
 // draw cloth function
 static void drawCloth(bool picking);
+static void animateCloth(int value);
 
 // scene update
 static void updateProjection();
 static void updateRenderTarget();
-static void animateCloth();
 
 // cleaning
 static void deleteShaders();
@@ -95,46 +101,7 @@ int main(int argc, char** argv) {
 		initCloth();
 		initScene();
 
-		// temp test
-		auto temp = MassSpringBuilder::UniformGrid(
-			SystemParam::n,
-			SystemParam::h,
-			SystemParam::r,
-			SystemParam::k,
-			SystemParam::m,
-			SystemParam::a,
-			SystemParam::g
-		);
-		MassSpringSolver solver(temp, g_meshData.vbuff);
-		solver.solve(5);
-
-		////fix one point
-		//g_meshData.vbuff[0] = -1.0f;
-		//g_meshData.vbuff[0] = 1.0f;
-		//g_meshData.vbuff[0] = 0.0f;
-
-		//glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
-		//	g_meshData.vbuff, GL_STATIC_DRAW);
-		//// calculate normals
-		//g_clothMesh.request_face_normals();
-		//g_clothMesh.update_normals();
-		//g_clothMesh.release_face_normals();
-
-
-		//solver.solve(5);
-		////fix one point
-		//g_meshData.vbuff[0] = -1.0f;
-		//g_meshData.vbuff[0] = 1.0f;
-		//g_meshData.vbuff[0] = 0.0f;
-		//glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
-		//glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
-		//	g_meshData.vbuff, GL_STATIC_DRAW);
-		//// calculate normals
-		//g_clothMesh.request_face_normals();
-		//g_clothMesh.update_normals();
-		//g_clothMesh.release_face_normals();
-
+		glutTimerFunc(20, animateCloth, 0);
 		glutMainLoop();
 
 		deleteShaders();
@@ -147,7 +114,7 @@ int main(int argc, char** argv) {
 }
 
 
-
+// S T A T E  I N I T I A L I Z A T O N /////////////////////////////////////////////
 static void initGlutState(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
@@ -255,20 +222,43 @@ static void initCloth() {
 		g_meshData.ibuff, GL_STATIC_DRAW);
 
 	checkGlErrors();
+
+	// initialize mass spring system
+	g_system = MassSpringBuilder::UniformGrid(
+		SystemParam::n,
+		SystemParam::h,
+		SystemParam::r,
+		SystemParam::k,
+		SystemParam::m,
+		SystemParam::a,
+		SystemParam::g
+	);
+
+	g_solver = new MassSpringSolver(g_system, g_meshData.vbuff);
+
+	g_temp1[0] = g_meshData.vbuff[0];
+	g_temp1[1] = g_meshData.vbuff[1];
+	g_temp1[2] = g_meshData.vbuff[2];
+
+	g_temp2[0] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0];
+	g_temp2[1] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1];
+	g_temp2[2] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2];
+	
 }
 
 static void initScene() {
 	g_ModelViewMatrix = glm::lookAt(
-		glm::vec3(1.0f, -1.0f, 2.0f),
+		glm::vec3(2.0f, -2.0f, 2.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
-	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 1.0f));
+	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 2.0f));
 	updateProjection();
 }
 
+// G L U T  C A L L B A C K S //////////////////////////////////////////////////////
 static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	drawCloth(false);
+	drawCloth(true);
 	glutSwapBuffers();
 }
 
@@ -280,6 +270,7 @@ static void reshape(int w, int h) {
 	glutPostRedisplay();
 }
 
+// C L O T H ///////////////////////////////////////////////////////////////////////
 static void drawCloth(bool picking) {
 	
 	if (picking) {
@@ -300,11 +291,52 @@ static void drawCloth(bool picking) {
 
 }
 
+static void animateCloth(int value) {
+	// solve system
+	g_solver->solve(2);
+
+	// fix two points
+	g_meshData.vbuff[0] = g_temp1[0];
+	g_meshData.vbuff[1] = g_temp1[1];
+	g_meshData.vbuff[2] = g_temp1[2];
+
+	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0] = g_temp2[0];
+	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1] = g_temp2[1];
+	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2] = g_temp2[2];
+	// update normals
+	g_clothMesh.request_face_normals();
+	g_clothMesh.update_normals();
+	g_clothMesh.release_face_normals();
+
+	// update target
+	updateRenderTarget();
+
+	// redisplay
+	glutPostRedisplay();
+
+	// reset timer
+	glutTimerFunc(20, animateCloth, 0);
+}
+
+// S C E N E  U P D A T E ///////////////////////////////////////////////////////////
 static void updateProjection() {
 	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
 		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
 }
 
+static void updateRenderTarget() {
+	// update vertex positions
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
+		g_meshData.vbuff, GL_STATIC_DRAW);
+
+	// update vertex normals
+	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.nbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.nbuffLen,
+		g_meshData.nbuff, GL_STATIC_DRAW);
+}
+
+// C L E A N  U P //////////////////////////////////////////////////////////////////
 static void deleteShaders() {
 	glDeleteShader(g_vshaderBasic);
 	glDeleteShader(g_fshaderPhong);

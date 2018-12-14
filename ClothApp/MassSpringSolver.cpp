@@ -120,8 +120,6 @@ void MassSpringSolver::solve(unsigned int n) {
 		localStep();
 		globalStep();
 	}
-
-	std::cout << "next state: \n" << current_state << std::endl;
 }
 
 void MassSpringSolver::timedSolve(unsigned int ms) {
@@ -141,7 +139,7 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 ) {
 	// n must be odd
 	assert(n % 2 == 1);
-
+	const float bsf = 0.5f;
 	// compute n_points and n_springs
 	unsigned int n_points = n * n;
 	unsigned int n_springs = (n - 1) * (5 * n - 2);
@@ -164,12 +162,14 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			if (i == n - 1) {
 				// structural spring
 				spring_list.push_back(Edge(n * i + j, n * i + j + 1));
-				rest_lengths[k++] = rest_length;
+				rest_lengths[k] = rest_length;
+				stiffnesses[k++] = stiffness;
 
 				// bending spring
 				if (j % 2 == 0) {
 					spring_list.push_back(Edge(n * i + j, n * i + j + 2));
-					rest_lengths[k++] = 2 * rest_length;
+					rest_lengths[k] = 2 * rest_length;
+					stiffnesses[k++] = bsf * stiffness;
 				}
 				continue;
 			}
@@ -178,12 +178,14 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			if (j == n - 1) {
 				// structural spring
 				spring_list.push_back(Edge(n * i + j, n * (i + 1) + j));
-				rest_lengths[k++] = rest_length;
+				rest_lengths[k] = rest_length;
+				stiffnesses[k++] = stiffness;
 
 				// bending spring
 				if (i % 2 == 0){
 					spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
-					rest_lengths[k++] = 2 * rest_length;
+					rest_lengths[k] = 2 * rest_length;
+					stiffnesses[k++] = bsf * stiffness;
 				}
 				continue;
 			}
@@ -191,23 +193,31 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			// structural springs
 			spring_list.push_back(Edge(n * i + j, n * i + j + 1));
 			spring_list.push_back(Edge(n * i + j, n * (i + 1) + j));
-			rest_lengths[k++] = rest_length;
-			rest_lengths[k++] = rest_length;
+			rest_lengths[k] = rest_length;
+			stiffnesses[k++] = stiffness;
+
+			rest_lengths[k] = rest_length;
+			stiffnesses[k++] = stiffness;
 
 			// shearing springs
 			spring_list.push_back(Edge(n * i + j, n * (i + 1) + j + 1));
 			spring_list.push_back(Edge(n * (i + 1) + j, n * i + j + 1));
-			rest_lengths[k++] = 1.41421356237f * rest_length;
-			rest_lengths[k++] = 1.41421356237f * rest_length;
+			rest_lengths[k] = 1.41421356237f * rest_length;
+			stiffnesses[k++] = 0.5 * stiffness;
+
+			rest_lengths[k] = 1.41421356237f * rest_length;
+			stiffnesses[k++] = 0.5 * stiffness;
 
 			// bending springs
 			if (j % 2 == 0) {
 				spring_list.push_back(Edge(n * i + j, n * i + j + 2));
-				rest_lengths[k++] = 2 * rest_length;
+				rest_lengths[k] = 2 * rest_length;
+				stiffnesses[k++] = bsf * stiffness;
 			}
 			if (i % 2 == 0) {
 				spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
-				rest_lengths[k++] = 2 * rest_length;
+				rest_lengths[k] = 2 * rest_length;
+				stiffnesses[k++] = bsf * stiffness;
 			}
 		}
 	}
@@ -217,9 +227,9 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	auto temp = new mass_spring_system(n_points, n_springs, time_step,
 		spring_list, rest_lengths, stiffnesses, masses, fext, damping_factor);
 	// temporary for testing
-	/*std::cout << "M: \n" << temp->M << std::endl;
-	std::cout << "L: \n" << temp->L << std::endl;
-	std::cout << "J: \n" << temp->J << std::endl;
-	std::cout << "fext: \n" << temp->fext << std::endl;*/
+	//std::cout << "M: \n" << temp->M << std::endl;
+	//std::cout << "L: \n" << temp->L << std::endl;
+	//std::cout << "J: \n" << temp->J << std::endl;
+	//std::cout << "fext: \n" << temp->fext << std::endl;
 	return temp;
 }
