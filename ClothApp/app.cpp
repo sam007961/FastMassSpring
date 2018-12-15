@@ -38,6 +38,9 @@ static mesh_data g_meshData; // pointers to data buffers
 // Render Target
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
+// Animation
+static const int fps = 60;
+
 // Mass Spring System
 mass_spring_system* g_system;
 MassSpringSolver* g_solver;
@@ -47,12 +50,12 @@ float g_temp2[3];
 // System parameters
 namespace SystemParam {
 	static const int n = 29; // must be odd, n * n = n_vertices
-	static const float h = 0.02f;
-	static const float r = 4.0f / (n - 1);
-	static const float k = 1.0f;
-	static const float m = 0.3f / (n * n);
-	static const float a = 0.98f;
-	static const float g = 9.8f * m;
+	static const float h = 0.01f; // time step, smaller for better results
+	static const float r = 4.0f / (n - 1); // spring rest legnth
+	static const float k = 1.0f; // spring stiffness
+	static const float m = 0.5f / (n * n); // point mass
+	static const float a = 0.991f; // damping, close to 1.0
+	static const float g = 10.0f * m; // gravitational force
 }
 
 // Scene matrices
@@ -101,7 +104,7 @@ int main(int argc, char** argv) {
 		initCloth();
 		initScene();
 
-		glutTimerFunc(20, animateCloth, 0);
+		glutTimerFunc((1.0f / fps) * 1000, animateCloth, 0);
 		glutMainLoop();
 
 		deleteShaders();
@@ -317,7 +320,7 @@ static void animateCloth(int value) {
 	glutPostRedisplay();
 
 	// reset timer
-	glutTimerFunc(20, animateCloth, 0);
+	glutTimerFunc((1.0f / fps) * 1000, animateCloth, 0);
 }
 
 // S C E N E  U P D A T E ///////////////////////////////////////////////////////////
