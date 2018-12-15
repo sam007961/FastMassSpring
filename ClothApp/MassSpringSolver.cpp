@@ -227,3 +227,12 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 		spring_list, rest_lengths, stiffnesses, masses, fext, damping_factor);
 	return temp;
 }
+
+PointFixer::PointFixer(float*  vbuff, int buffSize) : vbuff(vbuff), buffSize(buffSize) {}
+void PointFixer::addPoint(int i) { fix_map[i] = Vector3f(vbuff[i], vbuff[i + 1], vbuff[i + 2]); }
+void PointFixer::removePoint(int i) { fix_map.erase(i); }
+void PointFixer::fixPoints() {
+	for (auto fix : fix_map)
+		for (int i = 0; i < 3; i++)
+			vbuff[fix.first + i] = fix.second[i];
+}

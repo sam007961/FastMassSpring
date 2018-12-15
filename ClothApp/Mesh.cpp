@@ -8,6 +8,7 @@ void MeshBuilder::buildGridNxN(Mesh& mesh, float w, int n) {
 
 	// generate mesh
 	const float d = w / (n - 1); // step distance
+	const float ud = 1.0 / (n - 1); // unit step distance
 	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-w, w, 0.0f); // origin
 	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
 	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
@@ -16,7 +17,7 @@ void MeshBuilder::buildGridNxN(Mesh& mesh, float w, int n) {
 	for (int i = 0; i < n; i++) {
 		for (int j = 0; j < n; j++) {
 			handle_table[j + i * n] = mesh.add_vertex(o + d*j*ux + d*i*uy); // add vertex
-			mesh.set_texcoord2D(handle_table[j + i * n], OpenMesh::Vec2f(d*j, d*i)); // add texture coordinates
+			mesh.set_texcoord2D(handle_table[j + i * n], OpenMesh::Vec2f(ud*j, ud*i)); // add texture coordinates
 
 			//add connectivity
 			if (i > 0 && j < n - 1) {

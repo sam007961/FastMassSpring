@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <vector>
+#include <unordered_map>
 
 struct mass_spring_system { 
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
@@ -89,4 +90,20 @@ public:
 		float damping_factor,    // damping factor
 		float gravity            // gravitationl force (-z axis)
 	);
+};
+
+class PointFixer {
+private:
+	typedef Eigen::Vector3f Vector3f;
+	typedef std::unordered_map<int, Vector3f> index_map;
+
+	int buffSize; // size of vertex buffer
+	float* vbuff; // vertex buffer
+	index_map fix_map; // list of fixed points
+
+public:
+	PointFixer(float* vbuff, int buffSize);
+	void addPoint(int i); // add point at index i to list
+	void removePoint(int i); // remove point at index i from list
+	void fixPoints();
 };

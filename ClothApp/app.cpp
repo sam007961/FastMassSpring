@@ -11,11 +11,19 @@
 #include "Mesh.h"
 #include "Renderer.h"
 #include "MassSpringSolver.h"
+#include "UserInteraction.h"
 
-// BIG TODO (for later): refactor code to avoid using global state, and more OOP
 // G L O B A L S ///////////////////////////////////////////////////////////////////
-// Window Size
-static int g_window_width = 480, g_window_height = 480;
+typedef glm::vec3 Point;
+
+// Window
+static int g_windowWidth = 640, g_windowHeight = 640;
+static bool g_mouseClickDown = false;
+static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
+static int g_mouseClickX;
+static int g_mouseClickY;
+
+static UserInteraction* UI;
 
 // Constants
 static const float PI = glm::pi<float>();
@@ -39,26 +47,27 @@ static mesh_data g_meshData; // pointers to data buffers
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
 // Animation
-static const int g_fps = 80; // frames per second
+static const int g_fps = 60; // frames per second
 static const int g_hps = 4; // time steps per frame
 static const int g_iter = 7; // iterations per time step
+static const int g_frame_time = 15; // approximate time for frame calculations | 15
+static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
 // Mass Spring System
-mass_spring_system* g_system;
-MassSpringSolver* g_solver;
+static mass_spring_system* g_system;
+static MassSpringSolver* g_solver;
+static PointFixer * g_fixer;
 
-float g_temp1[3];
-float g_temp2[3];
 // System parameters
 namespace SystemParam {
-	static const int n = 41; // must be odd, n * n = n_vertices
-	static const float w = 10.0f; // width
-	static const float h = 0.012f; // time step, smaller for better results
+	static const int n = 41; // must be odd, n * n = n_vertices | 41
+	static const float w = 10.0f; // width | 10.0f
+	static const float h = 0.007f; // time step, smaller for better results | 0.007f
 	static const float r = w / (n - 1); // spring rest legnth
-	static const float k = 1.0f; // spring stiffness
-	static const float m = 0.2f / (n * n); // point mass
-	static const float a = 0.994f; // damping, close to 1.0
-	static const float g = 9.8f * m; // gravitational force
+	static const float k = 0.9f; // spring stiffness | 0.9f;
+	static const float m = 0.25f / (n * n); // point mass | 0.25f
+	static const float a = 0.995f; // damping, close to 1.0 | 0.995f
+	static const float g = 9.8f * m; // gravitational force | 9.8f
 }
 
 // Scene parameters
@@ -80,7 +89,7 @@ static void initScene(); // Generate scene matrices
 // glut callbacks
 static void display();
 static void reshape(int, int);
-//static void mouse(int, int, int, int);
+static void mouse(int, int, int, int);
 //static void motion(int, int);
 //static void keyboard(unsigned char, int, int);
 
@@ -110,7 +119,7 @@ int main(int argc, char** argv) {
 		initCloth();
 		initScene();
 
-		glutTimerFunc((1.0f / g_fps) * 1000, animateCloth, 0);
+		glutTimerFunc(g_animation_timer, animateCloth, 0);
 		glutMainLoop();
 
 		deleteShaders();
@@ -127,11 +136,12 @@ int main(int argc, char** argv) {
 static void initGlutState(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize(g_window_width, g_window_height);
+	glutInitWindowSize(g_windowWidth, g_windowHeight);
 	glutCreateWindow("Cloth App");
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
+	glutMouseFunc(mouse);
 	/*glutMotionFunc(motion);
 	glutMouseFunc(mouse);
 	glutKeyboardFunc(keyboard);*/
@@ -139,8 +149,12 @@ static void initGlutState(int argc, char** argv) {
 
 static void initGLState() {
 	glClearColor(0.25f, 0.25f, 0.25f, 0);
+	glClearDepth(1.);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glReadBuffer(GL_BACK);
 	glEnable(GL_FRAMEBUFFER_SRGB);
 
 	checkGlErrors();
@@ -197,7 +211,7 @@ static void initCloth() {
 
 	// generate mesh
 	const int n = SystemParam::n;
-	const int w = SystemParam::w;
+	const float w = SystemParam::w;
 	MeshBuilder::buildGridNxN(g_clothMesh, w, n);
 
 	// build index buffer
@@ -247,15 +261,13 @@ static void initCloth() {
 	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_meshData.vbuff);
 
-	// temp fixed points
-	g_temp1[0] = g_meshData.vbuff[0];
-	g_temp1[1] = g_meshData.vbuff[1];
-	g_temp1[2] = g_meshData.vbuff[2];
+	// fix top corners
+	g_fixer = new PointFixer(g_meshData.vbuff, g_meshData.vbuffLen);
+	g_fixer->addPoint(0);
+	g_fixer->addPoint((SystemParam::n - 1) * 3);
 
-	g_temp2[0] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0];
-	g_temp2[1] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1];
-	g_temp2[2] = g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2];
-	
+	// initialize user interaction
+	UI = new UserInteraction(g_meshData.vbuff, SystemParam::n);
 }
 
 static void initScene() {
@@ -272,19 +284,48 @@ static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	drawCloth(false);
 	glutSwapBuffers();
+
+	checkGlErrors();
 }
 
 static void reshape(int w, int h) {
-	g_window_width = w;
-	g_window_height = h;
+	g_windowWidth = w;
+	g_windowHeight = h;
 	glViewport(0, 0, w, h);
 	updateProjection();
 	glutPostRedisplay();
 }
 
+static void mouse(const int button, const int state, const int x, const int y) {
+	g_mouseClickX = x;
+	g_mouseClickY = g_windowHeight - y - 1;
+
+	g_mouseLClickButton |= (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN);
+	g_mouseRClickButton |= (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN);
+	g_mouseMClickButton |= (button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN);
+
+	g_mouseLClickButton &= !(button == GLUT_LEFT_BUTTON && state == GLUT_UP);
+	g_mouseRClickButton &= !(button == GLUT_RIGHT_BUTTON && state == GLUT_UP);
+	g_mouseMClickButton &= !(button == GLUT_MIDDLE_BUTTON && state == GLUT_UP);
+
+	g_mouseClickDown = g_mouseLClickButton || g_mouseRClickButton || g_mouseMClickButton;
+
+	// pick point
+	if (g_mouseLClickButton) {
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		drawCloth(true);
+		glFlush();
+		
+		UI->grabPoint(g_mouseClickX, g_mouseClickY);
+		checkGlErrors();
+		glClearColor(0.25f, 0.25f, 0.25f, 0);
+	}
+	else UI->releasePoint();
+}
+
 // C L O T H ///////////////////////////////////////////////////////////////////////
 static void drawCloth(bool picking) {
-	
 	if (picking) {
 		PickShadingRenderer picker(&g_pickShader);
 		picker.setModelview(g_ModelViewMatrix);
@@ -299,8 +340,8 @@ static void drawCloth(bool picking) {
 		phonger.setProjection(g_ProjectionMatrix);
 		phonger.setRenderTarget(g_renderTarget);
 		phonger.draw(g_meshData.ibuffLen);
+		checkGlErrors();
 	}
-
 }
 
 static void animateCloth(int value) {
@@ -308,15 +349,8 @@ static void animateCloth(int value) {
 	for (int i = 0; i < g_hps; i++) {
 		// solve system
 		g_solver->solve(g_iter);
-
-		// fix two points
-		g_meshData.vbuff[0] = g_temp1[0];
-		g_meshData.vbuff[1] = g_temp1[1];
-		g_meshData.vbuff[2] = g_temp1[2];
-
-		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0] = g_temp2[0];
-		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1] = g_temp2[1];
-		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2] = g_temp2[2];
+		// fix points
+		g_fixer->fixPoints();
 	}
 
 	// update normals
@@ -331,13 +365,13 @@ static void animateCloth(int value) {
 	glutPostRedisplay();
 
 	// reset timer
-	glutTimerFunc((1.0f / g_fps) * 1000, animateCloth, 0);
+	glutTimerFunc(g_animation_timer, animateCloth, 0);
 }
 
 // S C E N E  U P D A T E ///////////////////////////////////////////////////////////
 static void updateProjection() {
 	g_ProjectionMatrix = glm::perspective(PI / 4.0f,
-		g_window_width * 1.0f / g_window_height, 0.01f, 1000.0f);
+		g_windowWidth * 1.0f / g_windowHeight, 0.01f, 1000.0f);
 }
 
 static void updateRenderTarget() {
