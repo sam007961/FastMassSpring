@@ -1,14 +1,14 @@
 #include "Mesh.h"
 
-void MeshBuilder::buildGridNxN(Mesh& mesh, int n) {
+void MeshBuilder::buildGridNxN(Mesh& mesh, float w, int n) {
 	// request mesh properties
 	mesh.request_vertex_normals();
 	mesh.request_vertex_normals();
 	mesh.request_vertex_texcoords2D();
 
 	// generate mesh
-	const float d = 4.0f / (n - 1); // step distance
-	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-2.0f, 2.0f, 0.0f); // origin
+	const float d = w / (n - 1); // step distance
+	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-w, w, 0.0f); // origin
 	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
 	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
 	std::vector<OpenMesh::VertexHandle> handle_table(n * n); // table storing vertex handles for easy grid connectivity establishment

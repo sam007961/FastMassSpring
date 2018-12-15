@@ -25,6 +25,6 @@ struct mesh_data {
 
 class MeshBuilder {
 public:
-	static void buildGridNxN(Mesh& mesh, int N);
+	static void buildGridNxN(Mesh& mesh, float w, int N);
 	static void buildGridIBuffNxN(unsigned int* ibuff, int N);
 };

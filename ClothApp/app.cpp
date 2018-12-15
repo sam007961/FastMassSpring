@@ -39,7 +39,9 @@ static mesh_data g_meshData; // pointers to data buffers
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
 // Animation
-static const int fps = 60;
+static const int g_fps = 80; // frames per second
+static const int g_hps = 4; // time steps per frame
+static const int g_iter = 7; // iterations per time step
 
 // Mass Spring System
 mass_spring_system* g_system;
@@ -49,14 +51,18 @@ float g_temp1[3];
 float g_temp2[3];
 // System parameters
 namespace SystemParam {
-	static const int n = 29; // must be odd, n * n = n_vertices
-	static const float h = 0.01f; // time step, smaller for better results
-	static const float r = 4.0f / (n - 1); // spring rest legnth
+	static const int n = 41; // must be odd, n * n = n_vertices
+	static const float w = 10.0f; // width
+	static const float h = 0.012f; // time step, smaller for better results
+	static const float r = w / (n - 1); // spring rest legnth
 	static const float k = 1.0f; // spring stiffness
-	static const float m = 0.5f / (n * n); // point mass
-	static const float a = 0.991f; // damping, close to 1.0
-	static const float g = 10.0f * m; // gravitational force
+	static const float m = 0.2f / (n * n); // point mass
+	static const float a = 0.994f; // damping, close to 1.0
+	static const float g = 9.8f * m; // gravitational force
 }
+
+// Scene parameters
+static const float g_camera_distance = 15.0f;
 
 // Scene matrices
 static glm::mat4 g_ModelViewMatrix;
@@ -104,7 +110,7 @@ int main(int argc, char** argv) {
 		initCloth();
 		initScene();
 
-		glutTimerFunc((1.0f / fps) * 1000, animateCloth, 0);
+		glutTimerFunc((1.0f / g_fps) * 1000, animateCloth, 0);
 		glutMainLoop();
 
 		deleteShaders();
@@ -191,7 +197,8 @@ static void initCloth() {
 
 	// generate mesh
 	const int n = SystemParam::n;
-	MeshBuilder::buildGridNxN(g_clothMesh, n);
+	const int w = SystemParam::w;
+	MeshBuilder::buildGridNxN(g_clothMesh, w, n);
 
 	// build index buffer
 	g_meshData.ibuffLen = 6 * (n - 1) * (n - 1);
@@ -253,10 +260,10 @@ static void initCloth() {
 
 static void initScene() {
 	g_ModelViewMatrix = glm::lookAt(
-		glm::vec3(7.0f, -10.0f, 0.0f),
+		glm::vec3(0.618, -0.786, 0.0f) * g_camera_distance,
 		glm::vec3(0.0f, 0.0f, -1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
-	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 2.0f));
+	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, SystemParam::w / 4));
 	updateProjection();
 }
 
@@ -297,17 +304,21 @@ static void drawCloth(bool picking) {
 }
 
 static void animateCloth(int value) {
-	// solve system
-	g_solver->solve(5);
 
-	// fix two points
-	g_meshData.vbuff[0] = g_temp1[0];
-	g_meshData.vbuff[1] = g_temp1[1];
-	g_meshData.vbuff[2] = g_temp1[2];
+	for (int i = 0; i < g_hps; i++) {
+		// solve system
+		g_solver->solve(g_iter);
 
-	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0] = g_temp2[0];
-	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1] = g_temp2[1];
-	g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2] = g_temp2[2];
+		// fix two points
+		g_meshData.vbuff[0] = g_temp1[0];
+		g_meshData.vbuff[1] = g_temp1[1];
+		g_meshData.vbuff[2] = g_temp1[2];
+
+		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 0] = g_temp2[0];
+		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 1] = g_temp2[1];
+		g_meshData.vbuff[(SystemParam::n - 1) * 3 + 2] = g_temp2[2];
+	}
+
 	// update normals
 	g_clothMesh.request_face_normals();
 	g_clothMesh.update_normals();
@@ -320,7 +331,7 @@ static void animateCloth(int value) {
 	glutPostRedisplay();
 
 	// reset timer
-	glutTimerFunc((1.0f / fps) * 1000, animateCloth, 0);
+	glutTimerFunc((1.0f / g_fps) * 1000, animateCloth, 0);
 }
 
 // S C E N E  U P D A T E ///////////////////////////////////////////////////////////
