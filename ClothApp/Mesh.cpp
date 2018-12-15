@@ -7,7 +7,7 @@ void MeshBuilder::buildGridNxN(Mesh& mesh, int n) {
 	mesh.request_vertex_texcoords2D();
 
 	// generate mesh
-	const float d = 1.0f / (n - 1); // step distance
+	const float d = 4.0f / (n - 1); // step distance
 	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-1.0f, 1.0f, 0.0f); // origin
 	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
 	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction

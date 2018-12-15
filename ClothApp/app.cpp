@@ -46,13 +46,13 @@ float g_temp1[3];
 float g_temp2[3];
 // System parameters
 namespace SystemParam {
-	static const int n = 7; // must be odd, n * n = n_vertices
-	static const float h = 0.08f;
-	static const float r = 2.0f / n;
-	static const float k = 10000.0f;
-	static const float m = 1.0f / (n * n);
-	static const float a = 1.0f;
-	static const float g = 9.0f * m;
+	static const int n = 29; // must be odd, n * n = n_vertices
+	static const float h = 0.02f;
+	static const float r = 4.0f / (n - 1);
+	static const float k = 1.0f;
+	static const float m = 0.3f / (n * n);
+	static const float a = 0.98f;
+	static const float g = 9.8f * m;
 }
 
 // Scene matrices
@@ -234,8 +234,10 @@ static void initCloth() {
 		SystemParam::g
 	);
 
+	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_meshData.vbuff);
 
+	// temp fixed points
 	g_temp1[0] = g_meshData.vbuff[0];
 	g_temp1[1] = g_meshData.vbuff[1];
 	g_temp1[2] = g_meshData.vbuff[2];
@@ -248,8 +250,8 @@ static void initCloth() {
 
 static void initScene() {
 	g_ModelViewMatrix = glm::lookAt(
-		glm::vec3(2.0f, -2.0f, 2.0f),
-		glm::vec3(0.0f, 0.0f, 1.0f),
+		glm::vec3(7.0f, -10.0f, 0.0f),
+		glm::vec3(0.0f, 0.0f, -1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 2.0f));
 	updateProjection();
@@ -258,7 +260,7 @@ static void initScene() {
 // G L U T  C A L L B A C K S //////////////////////////////////////////////////////
 static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	drawCloth(true);
+	drawCloth(false);
 	glutSwapBuffers();
 }
 
@@ -293,7 +295,7 @@ static void drawCloth(bool picking) {
 
 static void animateCloth(int value) {
 	// solve system
-	g_solver->solve(2);
+	g_solver->solve(5);
 
 	// fix two points
 	g_meshData.vbuff[0] = g_temp1[0];

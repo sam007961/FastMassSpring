@@ -42,7 +42,7 @@ mass_spring_system::mass_spring_system(
 	J.resize(3 * n_points, 3 * n_springs);
 	k = 0; // spring counter
 	for (Edge& i : spring_list) {
-		for (int j = 0; j < 3; j++) {
+		for (unsigned int j = 0; j < 3; j++) {
 			JTriplets.push_back(
 				Triplet(3 * i.first  + j, 3 * k + j,  1 * stiffnesses[k]));
 			JTriplets.push_back(
@@ -55,7 +55,7 @@ mass_spring_system::mass_spring_system(
 	// compute M
 	TripletList MTriplets;
 	this->M.resize(3 * n_points, 3 * n_points);
-	for (int i = 0; i < n_points; i++) {
+	for (unsigned int i = 0; i < n_points; i++) {
 		MTriplets.push_back(Triplet(3 * i + 0, 3 * i + 0, masses[i]));
 		MTriplets.push_back(Triplet(3 * i + 1, 3 * i + 1, masses[i]));
 		MTriplets.push_back(Triplet(3 * i + 2, 3 * i + 2, masses[i]));
@@ -69,7 +69,6 @@ MassSpringSolver::MassSpringSolver(mass_spring_system* system, float* vbuff)
 	prev_state(current_state), spring_directions(system->n_springs * 3) {
 	
 	float h2 = system->time_step * system->time_step; // shorthand
-	float a = system->damping_factor; // shorthand
 	
 	// pre-factor system matrix
 	SparseMatrix A = system->M + h2 * system->L;
@@ -84,9 +83,6 @@ void MassSpringSolver::globalStep() {
 	VectorXf b = inertial_term
 		+ h2 * system->J * spring_directions
 		+ h2 * system->fext;
-
-	// save current state in previous state
-	prev_state = current_state;
 
 	// solve system and update state
 	current_state = system_matrix.solve(b);
@@ -115,6 +111,9 @@ void MassSpringSolver::solve(unsigned int n) {
 	// update inertial term
 	inertial_term = system->M * ((a + 1) * (current_state) - a * prev_state);
 
+	// save current state in previous state
+	prev_state = current_state;
+
 	// perform steps
 	for (unsigned int i = 0; i < n; i++) {
 		localStep();
@@ -139,7 +138,7 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 ) {
 	// n must be odd
 	assert(n % 2 == 1);
-	const float bsf = 0.5f;
+
 	// compute n_points and n_springs
 	unsigned int n_points = n * n;
 	unsigned int n_springs = (n - 1) * (5 * n - 2);
@@ -152,8 +151,8 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	VectorXf rest_lengths(n_springs);
 	VectorXf stiffnesses(n_springs);
 	unsigned int k = 0; // spring counter
-	for(int i = 0; i < n; i++) {
-		for(int j = 0; j < n; j++) {
+	for(unsigned int i = 0; i < n; i++) {
+		for(unsigned int j = 0; j < n; j++) {
 			// bottom right corner
 			if(i == n - 1 && j == n - 1) {
 				continue;
@@ -169,7 +168,7 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 				if (j % 2 == 0) {
 					spring_list.push_back(Edge(n * i + j, n * i + j + 2));
 					rest_lengths[k] = 2 * rest_length;
-					stiffnesses[k++] = bsf * stiffness;
+					stiffnesses[k++] = stiffness;
 				}
 				continue;
 			}
@@ -185,7 +184,7 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 				if (i % 2 == 0){
 					spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
 					rest_lengths[k] = 2 * rest_length;
-					stiffnesses[k++] = bsf * stiffness;
+					stiffnesses[k++] = stiffness;
 				}
 				continue;
 			}
@@ -203,21 +202,21 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			spring_list.push_back(Edge(n * i + j, n * (i + 1) + j + 1));
 			spring_list.push_back(Edge(n * (i + 1) + j, n * i + j + 1));
 			rest_lengths[k] = 1.41421356237f * rest_length;
-			stiffnesses[k++] = 0.5 * stiffness;
+			stiffnesses[k++] = stiffness;
 
 			rest_lengths[k] = 1.41421356237f * rest_length;
-			stiffnesses[k++] = 0.5 * stiffness;
+			stiffnesses[k++] = stiffness;
 
 			// bending springs
 			if (j % 2 == 0) {
 				spring_list.push_back(Edge(n * i + j, n * i + j + 2));
 				rest_lengths[k] = 2 * rest_length;
-				stiffnesses[k++] = bsf * stiffness;
+				stiffnesses[k++] = stiffness;
 			}
 			if (i % 2 == 0) {
 				spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
 				rest_lengths[k] = 2 * rest_length;
-				stiffnesses[k++] = bsf * stiffness;
+				stiffnesses[k++] = stiffness;
 			}
 		}
 	}
@@ -226,10 +225,5 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	VectorXf fext(Vector3f(0, 0, -gravity).replicate(n_points, 1));
 	auto temp = new mass_spring_system(n_points, n_springs, time_step,
 		spring_list, rest_lengths, stiffnesses, masses, fext, damping_factor);
-	// temporary for testing
-	//std::cout << "M: \n" << temp->M << std::endl;
-	//std::cout << "L: \n" << temp->L << std::endl;
-	//std::cout << "J: \n" << temp->J << std::endl;
-	//std::cout << "fext: \n" << temp->fext << std::endl;
 	return temp;
 }
