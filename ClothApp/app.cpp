@@ -90,7 +90,7 @@ static void initScene(); // Generate scene matrices
 static void display();
 static void reshape(int, int);
 static void mouse(int, int, int, int);
-//static void motion(int, int);
+static void motion(int, int);
 //static void keyboard(unsigned char, int, int);
 
 // draw cloth function
@@ -142,6 +142,7 @@ static void initGlutState(int argc, char** argv) {
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutMouseFunc(mouse);
+	glutMotionFunc(motion);
 	/*glutMotionFunc(motion);
 	glutMouseFunc(mouse);
 	glutKeyboardFunc(keyboard);*/
@@ -310,18 +311,37 @@ static void mouse(const int button, const int state, const int x, const int y) {
 
 	g_mouseClickDown = g_mouseLClickButton || g_mouseRClickButton || g_mouseMClickButton;
 
+	// TODO: move to UserInteraction class: add renderer member variable
 	// pick point
 	if (g_mouseLClickButton) {
 		glClearColor(0, 0, 0, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glDisable(GL_FRAMEBUFFER_SRGB);
 		drawCloth(true);
 		glFlush();
-		
 		UI->grabPoint(g_mouseClickX, g_mouseClickY);
 		checkGlErrors();
+
 		glClearColor(0.25f, 0.25f, 0.25f, 0);
+		glEnable(GL_FRAMEBUFFER_SRGB);
 	}
 	else UI->releasePoint();
+}
+
+static void motion(const int x, const int y) {
+	const float dx = float(x - g_mouseClickX);
+	const float dy = float (-(g_windowHeight - y - 1 - g_mouseClickY));
+
+	if (g_mouseLClickButton) {
+		//glm::vec3 ux(g_ModelViewMatrix * glm::vec4(1, 0, 0, 0));
+		//glm::vec3 uy(g_ModelViewMatrix * glm::vec4(0, 1, 0, 0));
+		glm::vec3 ux(0, 1, 0);
+		glm::vec3 uy(0, 0, -1);
+		UI->movePoint(0.03f * (dx * ux + dy * uy));
+	}
+
+	g_mouseClickX = x;
+	g_mouseClickY = g_windowHeight - y - 1;
 }
 
 // C L O T H ///////////////////////////////////////////////////////////////////////
@@ -350,6 +370,7 @@ static void animateCloth(int value) {
 		// solve system
 		g_solver->solve(g_iter);
 		// fix points
+		UI->fixPoints();
 		g_fixer->fixPoints();
 	}
 

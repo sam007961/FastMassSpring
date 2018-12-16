@@ -5,10 +5,11 @@
 class UserInteraction {
 private:
 	typedef glm::vec3 vec3;
-	typedef std::vector<char> color;
+	typedef std::vector<unsigned char> color;
 
 	int n; // grid size
 	int i; // index of fixed point
+	float* vbuff; // vertex buffer
 	vec3 ux, uy; // unit motion direction
 	PointFixer fixer; // point fixer
 	int colorToIndex(color c);
@@ -21,9 +22,9 @@ public:
 	void setMotion(vec3 ux, vec3 uy);
 
 	void grabPoint(int mouse_x, int mouse_y); // grab point with color c
-	//void movePoint(int dx, int dy); // move grabbed point along mouse
+	void movePoint(vec3 v); // move grabbed point along mouse
 	void releasePoint(); // release grabbed point;
 	
-	//void fixPoints();
+	void fixPoints();
 
 };
