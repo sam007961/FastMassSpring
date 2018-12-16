@@ -1,7 +1,7 @@
-My C++ implementation of *Fast Simulation of Mass-Spring Systems* rendered with OpenGL.
+My C++ implementation of *Fast Simulation of Mass-Spring Systems*, rendered with OpenGL.
 
 ### Dependencies
-* **OpenGL** for rendering.
+* **OpenGL, freeGLUT, GLEW, GLM** for rendering.
 * **OpenMesh** for computing normals.
 * **Eigen** for matrix computations.
 

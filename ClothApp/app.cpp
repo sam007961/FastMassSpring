@@ -47,9 +47,9 @@ static mesh_data g_meshData; // pointers to data buffers
 static render_target g_renderTarget; // vertex, normal, texutre, index
 
 // Animation
-static const int g_fps = 60; // frames per second
-static const int g_hps = 4; // time steps per frame
-static const int g_iter = 7; // iterations per time step
+static const int g_fps = 60; // frames per second  | 60
+static const int g_hps = 4; // time steps per frame | 4
+static const int g_iter = 7; // iterations per time step | 7
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -102,8 +102,7 @@ static void updateProjection();
 static void updateRenderTarget();
 
 // cleaning
-static void deleteShaders();
-//static void deleteBuffers();
+static void cleanUp();
 
 // error checks
 void checkGlErrors();
@@ -122,7 +121,7 @@ int main(int argc, char** argv) {
 		glutTimerFunc(g_animation_timer, animateCloth, 0);
 		glutMainLoop();
 
-		deleteShaders();
+		cleanUp();
 		return 0;
 	}
 	catch (const std::runtime_error& e) {
@@ -408,17 +407,36 @@ static void updateRenderTarget() {
 }
 
 // C L E A N  U P //////////////////////////////////////////////////////////////////
-static void deleteShaders() {
+static void cleanUp() {
+	// delete strings
+	delete[] g_basic_vshader;
+	delete[] g_phong_fshader;
+	delete[] g_pick_fshader;
+
+	// delete unlinked shaders
 	glDeleteShader(g_vshaderBasic);
 	glDeleteShader(g_fshaderPhong);
 	glDeleteShader(g_fshaderPick);
 
+	// delete shader programs
 	glDeleteProgram(g_phongShader);
 	glDeleteProgram(g_pickShader);
+
+	// delete buffers
+	glDeleteBuffers(1, &g_renderTarget.vbo);
+	glDeleteBuffers(1, &g_renderTarget.nbo);
+	glDeleteBuffers(1, &g_renderTarget.tbo);
+	glDeleteBuffers(1, &g_renderTarget.ibo);
+	
+	// delete mass-spring system
+	delete g_system;
+	delete g_solver;
+	delete g_fixer;
 
 	checkGlErrors();
 }
 
+// E R R O R S /////////////////////////////////////////////////////////////////////
 void checkGlErrors() {
 	const GLenum errCode = glGetError();
 
