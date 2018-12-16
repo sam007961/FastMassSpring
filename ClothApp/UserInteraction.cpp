@@ -13,10 +13,6 @@ int UserInteraction::colorToIndex(color c) {
 	return 3 * n * vy + 3 * vx;
 }
 
-void UserInteraction::setHorizontalMotion(vec3 ux) { this->ux = ux; }
-void UserInteraction::setVerticalMotion(vec3 uy) { this->uy = uy; }
-void UserInteraction::setMotion(vec3 ux, vec3 uy) { this->ux = ux; this->uy = uy; }
-
 void UserInteraction::grabPoint(int mouse_x, int mouse_y){
 	// read color
 	color c(3);

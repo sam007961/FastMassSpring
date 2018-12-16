@@ -25,6 +25,7 @@
     <None Include="shaders\pick.fshader">
       <Filter>Shader Files</Filter>
     </None>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Shader.cpp">
