@@ -35,16 +35,15 @@ static const char* const g_phong_fshader = "./shaders/phong.fshader";
 static const char* const g_pick_fshader = "./shaders/pick.fshader";
 
 // Shader Handles
-static GLuint g_vshaderBasic, g_fshaderPhong, g_fshaderPick; // unlinked shaders
-static PhongShader g_phongShader; // linked phong shader
-static PickShader g_pickShader; // link pick shader
+static PhongShader* g_phongShader; // linked phong shader
+static PickShader* g_pickShader; // linked pick shader
 
 // Mesh
 static Mesh g_clothMesh; // halfedge data structure
 static mesh_data g_meshData; // pointers to data buffers
 
 // Render Target
-static render_target g_renderTarget; // vertex, normal, texutre, index
+static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
@@ -62,7 +61,7 @@ static PointFixer * g_fixer;
 namespace SystemParam {
 	static const int n = 41; // must be odd, n * n = n_vertices | 41
 	static const float w = 10.0f; // width | 10.0f
-	static const float h = 0.007f; // time step, smaller for better results | 0.007f
+	static const float h = 0.008f; // time step, smaller for better results | 0.008f
 	static const float r = w / (n - 1); // spring rest legnth
 	static const float k = 0.9f; // spring stiffness | 0.9f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
@@ -161,54 +160,22 @@ static void initGLState() {
 }
 
 static void initShaders() {
-	std::ifstream ifBasic(g_basic_vshader);
-	std::ifstream ifPhong(g_phong_fshader);
-	std::ifstream ifPick(g_pick_fshader);
+	GLShader basic_vert(GL_VERTEX_SHADER);
+	GLShader phong_frag(GL_FRAGMENT_SHADER);
+	GLShader pick_frag(GL_FRAGMENT_SHADER);
 
-	g_vshaderBasic = glCreateShader(GL_VERTEX_SHADER);
-	g_fshaderPhong = glCreateShader(GL_FRAGMENT_SHADER);
-	g_fshaderPick = glCreateShader(GL_FRAGMENT_SHADER);
+	basic_vert.compile(std::ifstream("./shaders/basic.vshader"));
+	phong_frag.compile(std::ifstream("./shaders/phong.fshader"));
+	pick_frag.compile(std::ifstream("./shaders/pick.fshader"));
 
-	if (!g_vshaderBasic || !g_fshaderPhong || !g_fshaderPick) {
-		throw std::runtime_error("glCreateShader fails.");
-	}
-
-	compile_shader(g_vshaderBasic, ifBasic);
-	compile_shader(g_fshaderPhong, ifPhong);
-	compile_shader(g_fshaderPick, ifPick);
-
-	g_phongShader = glCreateProgram();
-	g_pickShader = glCreateProgram();
-
-	if (!g_phongShader || !g_pickShader) {
-		throw std::runtime_error("glCreateProgram fails.");
-	}
-
-	link_shader(g_phongShader, g_vshaderBasic, g_fshaderPhong);
-	link_shader(g_pickShader, g_vshaderBasic, g_fshaderPick);
-
-	g_phongShader.h_aPosition = glGetAttribLocation(g_phongShader, "aPosition");
-	g_phongShader.h_aNormal = glGetAttribLocation(g_phongShader, "aNormal");
-	g_phongShader.h_uModelViewMatrix = glGetUniformLocation(g_phongShader, "uModelViewMatrix");
-	g_phongShader.h_uProjectionMatrix = glGetUniformLocation(g_phongShader, "uProjectionMatrix");
-
-	g_pickShader.h_aPosition = glGetAttribLocation(g_pickShader, "aPosition");
-	g_pickShader.h_aTexCoord = glGetAttribLocation(g_pickShader, "aTexCoord");
-	g_pickShader.h_uTessFact = glGetUniformLocation(g_pickShader, "uTessFact");
-	g_pickShader.h_uModelViewMatrix = glGetUniformLocation(g_pickShader, "uModelViewMatrix");
-	g_pickShader.h_uProjectionMatrix = glGetUniformLocation(g_pickShader, "uProjectionMatrix");
-	
+	g_phongShader = new PhongShader;
+	g_pickShader = new PickShader;
+	g_phongShader->link(basic_vert, phong_frag);
+	g_pickShader->link(basic_vert, pick_frag);
 	checkGlErrors();
 }
 
 static void initCloth() {
-	// generate buffers
-	glGenBuffers(1, &g_renderTarget.vbo);
-	glGenBuffers(1, &g_renderTarget.nbo);
-	glGenBuffers(1, &g_renderTarget.tbo);
-	glGenBuffers(1, &g_renderTarget.ibo);
-
-
 	// generate mesh
 	const int n = SystemParam::n;
 	const float w = SystemParam::w;
@@ -228,22 +195,12 @@ static void initCloth() {
 	g_meshData.nbuff = NORMAL_DATA(g_clothMesh);
 	g_meshData.tbuff = TEXTURE_DATA(g_clothMesh);
 
-	// fill render target
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
-		g_meshData.vbuff, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.nbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.nbuffLen,
-		g_meshData.nbuff, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.tbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.tbuffLen,
-		g_meshData.tbuff, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.ibo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(unsigned int) * g_meshData.ibuffLen, 
-		g_meshData.ibuff, GL_STATIC_DRAW);
+	// fill program input
+	g_render_target = new ProgramInput;
+	g_render_target->setPositionData(g_meshData.vbuff, g_meshData.vbuffLen);
+	g_render_target->setNormalData(g_meshData.nbuff, g_meshData.nbuffLen);
+	g_render_target->setTextureData(g_meshData.tbuff, g_meshData.tbuffLen);
+	g_render_target->setIndexData(g_meshData.ibuff, g_meshData.ibuffLen);
 
 	checkGlErrors();
 
@@ -346,19 +303,22 @@ static void motion(const int x, const int y) {
 // C L O T H ///////////////////////////////////////////////////////////////////////
 static void drawCloth(bool picking) {
 	if (picking) {
-		PickShadingRenderer picker(&g_pickShader);
-		picker.setModelview(g_ModelViewMatrix);
-		picker.setProjection(g_ProjectionMatrix);
-		picker.setTessFact(SystemParam::n);
-		picker.setRenderTarget(g_renderTarget);
-		picker.draw(g_meshData.ibuffLen);
+		Renderer renderer;
+		renderer.setProgram(g_pickShader);
+		renderer.setModelview(g_ModelViewMatrix);
+		renderer.setProjection(g_ProjectionMatrix);
+		g_pickShader->setTessFact(SystemParam::n);
+		renderer.setProgramInput(*g_render_target);
+		renderer.draw(g_meshData.ibuffLen);
 	}
 	else {
-		PhongShadingRenderer phonger(&g_phongShader);
-		phonger.setModelview(g_ModelViewMatrix);
-		phonger.setProjection(g_ProjectionMatrix);
-		phonger.setRenderTarget(g_renderTarget);
-		phonger.draw(g_meshData.ibuffLen);
+		Renderer renderer;
+		renderer.setProgram(g_phongShader);
+		renderer.setModelview(g_ModelViewMatrix);
+		
+		renderer.setProjection(g_ProjectionMatrix);
+		renderer.setProgramInput(*g_render_target);
+		renderer.draw(g_meshData.ibuffLen);
 		checkGlErrors();
 	}
 }
@@ -396,14 +356,11 @@ static void updateProjection() {
 
 static void updateRenderTarget() {
 	// update vertex positions
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.vbuffLen,
-		g_meshData.vbuff, GL_STATIC_DRAW);
+	g_render_target->setPositionData(g_meshData.vbuff, g_meshData.vbuffLen);
 
 	// update vertex normals
-	glBindBuffer(GL_ARRAY_BUFFER, g_renderTarget.nbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * g_meshData.nbuffLen,
-		g_meshData.nbuff, GL_STATIC_DRAW);
+	g_render_target->setNormalData(g_meshData.nbuff, g_meshData.nbuffLen);
+
 }
 
 // C L E A N  U P //////////////////////////////////////////////////////////////////
@@ -413,20 +370,7 @@ static void cleanUp() {
 	delete[] g_phong_fshader;
 	delete[] g_pick_fshader;
 
-	// delete unlinked shaders
-	glDeleteShader(g_vshaderBasic);
-	glDeleteShader(g_fshaderPhong);
-	glDeleteShader(g_fshaderPick);
 
-	// delete shader programs
-	glDeleteProgram(g_phongShader);
-	glDeleteProgram(g_pickShader);
-
-	// delete buffers
-	glDeleteBuffers(1, &g_renderTarget.vbo);
-	glDeleteBuffers(1, &g_renderTarget.nbo);
-	glDeleteBuffers(1, &g_renderTarget.tbo);
-	glDeleteBuffers(1, &g_renderTarget.ibo);
 	
 	// delete mass-spring system
 	delete g_system;

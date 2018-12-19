@@ -1,12 +1,12 @@
-#version 130
+#version 430
 
 uniform mat4 uModelViewMatrix;
 // uniform mat4 NormalMatrix;
 uniform mat4 uProjectionMatrix;
 
-in vec3 aPosition;
-in vec3 aNormal;
-in vec2 aTexCoord;
+layout(location=0) in vec3 aPosition;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aTexCoord;
 
 out vec3 vNormal;
 out vec2 vTexCoord;

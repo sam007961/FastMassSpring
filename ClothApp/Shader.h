@@ -1,26 +1,74 @@
 #pragma once
-#include <GL\glew.h>
 #include <fstream>
-struct Shader {
-	GLuint _handle; // Shader handle
-	GLint h_aPosition; // 
-	GLint h_uModelViewMatrix;
-	GLint h_uProjectionMatrix;
-	operator GLuint() const;
-	Shader& operator=(GLuint _handle);
+#include <GL\glew.h>
+#include <glm/common.hpp>
+
+class NonCopyable {
+public:
+	NonCopyable() {}
+	NonCopyable(const NonCopyable& other) {}
+	NonCopyable& operator=(const NonCopyable& other) {}
 };
 
-struct PhongShader : public Shader {
-	GLint h_aNormal;
-	PhongShader& operator=(GLuint _handle);
+class GLShader : public NonCopyable {
+private:
+	GLuint handle; // Shader handle
+
+public:
+	GLShader(GLenum shaderType);
+	/*GLShader(GLenum shaderType, const char* source);
+	GLShader(GLenum shaderType, std::ifstream& source);*/
+	void compile(const char* source);
+	void compile(std::ifstream& source);
+	operator GLuint() const; // cast to GLuint
+	~GLShader();
 };
 
-struct PickShader : public Shader {
-	GLint h_aTexCoord; // Texture Coordinates
-	GLint h_uTessFact; // Tesselation factor = n
-	PickShader& operator=(GLuint _handle);
+class GLProgram : public NonCopyable {
+protected:
+	GLuint handle;
+	GLuint uModelViewMatrix, uProjectionMatrix;
+	void getCameraUniforms();
+	void setUniformMat4(GLuint unif, glm::mat4 m);
+
+public:
+	GLProgram();
+	virtual void link(const GLShader& vshader, const GLShader& fshader);
+	operator GLuint() const; // cast to GLuint
+	void setModelView(glm::mat4 m);
+	void setProjection(glm::mat4 m);
+
+	~GLProgram();
 };
 
-void compile_shader(GLuint handle, const char* source);
-void compile_shader(GLuint handle, std::ifstream& source);
-void link_shader(GLuint program_handle, GLuint vshader_handle, GLuint fshader_handle);
+class ProgramInput {
+private:
+	GLuint handle; // vertex array object handle
+	GLuint vbo[4]; // vertex buffer object handles | position, normal, texture, index
+	void bufferData(unsigned int index, void* buff, size_t size);
+
+public:
+	ProgramInput();
+
+	void setPositionData(float* buff, unsigned int len);
+	void setNormalData(float* buff, unsigned int len);
+	void setTextureData(float* buff, unsigned int len);
+	void setIndexData(unsigned int* buff, unsigned int len);
+
+	operator GLuint() const; // cast to GLuint
+};
+
+class PhongShader : public GLProgram {
+public:
+	PhongShader();
+};
+
+
+class PickShader : public GLProgram {
+	GLuint uTessFact;
+
+public:
+	PickShader();
+	virtual void link(const GLShader& vshader, const GLShader& fshader);
+	void setTessFact(unsigned int n);
+};

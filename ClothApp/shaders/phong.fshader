@@ -1,4 +1,4 @@
-#version 130
+#version 430
 
 in vec3 vNormal;
 out vec4 fragColor;
@@ -12,5 +12,6 @@ void main(){
 
     toLight = normalize(vec3(-3, -1, 0.5));
     diffuse += max(0, dot(toLight, normal));
+    
     fragColor = diffuse * vec4(0, 0.3, 0.7, 1.0);
 }
