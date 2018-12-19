@@ -28,12 +28,6 @@ static UserInteraction* UI;
 // Constants
 static const float PI = glm::pi<float>();
 
-// TODO: refactor to remove some shader globals
-// Shader Files
-static const char* const g_basic_vshader = "./shaders/basic.vshader";
-static const char* const g_phong_fshader = "./shaders/phong.fshader";
-static const char* const g_pick_fshader = "./shaders/pick.fshader";
-
 // Shader Handles
 static PhongShader* g_phongShader; // linked phong shader
 static PickShader* g_pickShader; // linked pick shader
@@ -141,9 +135,6 @@ static void initGlutState(int argc, char** argv) {
 	glutReshapeFunc(reshape);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
-	/*glutMotionFunc(motion);
-	glutMouseFunc(mouse);
-	glutKeyboardFunc(keyboard);*/
 }
 
 static void initGLState() {
@@ -365,19 +356,10 @@ static void updateRenderTarget() {
 
 // C L E A N  U P //////////////////////////////////////////////////////////////////
 static void cleanUp() {
-	// delete strings
-	delete[] g_basic_vshader;
-	delete[] g_phong_fshader;
-	delete[] g_pick_fshader;
-
-
-	
 	// delete mass-spring system
 	delete g_system;
 	delete g_solver;
 	delete g_fixer;
-
-	checkGlErrors();
 }
 
 // E R R O R S /////////////////////////////////////////////////////////////////////

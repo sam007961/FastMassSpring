@@ -3,24 +3,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-#include <string>
-
-void checkGlErrors2() {
-	const GLenum errCode = glGetError();
-
-	if (errCode != GL_NO_ERROR) {
-		std::string error("GL Error: ");
-		error += reinterpret_cast<const char*>(gluErrorString(errCode));
-		std::cerr << error << std::endl;
-		throw std::runtime_error(error);
-	}
-}
-
+// GLSHADER ///////////////////////////////////////////////////////////////////////////////////
 GLShader::GLShader(GLenum shaderType) : handle(glCreateShader(shaderType)) {};
-
-/*GLShader::GLShader(GLenum shaderType, const char* source) : GLShader(shaderType) { compile(source); }
-
-GLShader(GLenum shaderType, std::ifstream& source) : GLShader(shaderType) { compile(source); }*/
 
 GLShader::operator GLuint() const {
 	return handle;
@@ -58,6 +42,7 @@ void GLShader::compile(std::ifstream& source) {
 	compile(&text[0]);
 }
 
+// GLPROGRAM //////////////////////////////////////////////////////////////////////////////////
 GLProgram::GLProgram() : handle(glCreateProgram()) {}
 
 void GLProgram::link(const GLShader& vshader, const GLShader& fshader) {
@@ -101,12 +86,7 @@ GLProgram::operator GLuint() const { return handle; }
 
 GLProgram::~GLProgram() { glDeleteProgram(handle); }
 
-void PickShader::setTessFact(unsigned int n) {
-	assert(uTessFact > 0);
-	glUseProgram(*this);
-	glUniform1i(uTessFact, n);
-	glUseProgram(0);
-}
+// PROGRAMINPUT ///////////////////////////////////////////////////////////////////////////////
 
 ProgramInput::ProgramInput() {
 	// generate buffers
@@ -160,6 +140,8 @@ ProgramInput::operator GLuint() const {
 	return handle;
 }
 
+
+// SHADER PROGRAMS ////////////////////////////////////////////////////////////////////////////
 PhongShader::PhongShader() : GLProgram() {}
 
 PickShader::PickShader() : GLProgram() {}
@@ -169,4 +151,11 @@ void PickShader::link(const GLShader& vshader, const GLShader& fshader) {
 
 	// get uniforms
 	uTessFact = glGetUniformLocation(handle, "uTessFact");
+}
+
+void PickShader::setTessFact(unsigned int n) {
+	assert(uTessFact > 0);
+	glUseProgram(*this);
+	glUniform1i(uTessFact, n);
+	glUseProgram(0);
 }
