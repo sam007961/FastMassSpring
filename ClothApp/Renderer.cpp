@@ -39,8 +39,10 @@ void Renderer::draw(unsigned int n_elements) {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
 	glDrawElements(GL_TRIANGLES, n_elements, GL_UNSIGNED_INT, 0);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
 	glBindVertexArray(0);
 	glUseProgram(0);
 }

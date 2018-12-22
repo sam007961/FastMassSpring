@@ -15,53 +15,8 @@ mass_spring_system::mass_spring_system(
 )
 	: n_points(n_points), n_springs(n_springs),
 	time_step(time_step), spring_list(spring_list),
-	rest_lengths(rest_lengths), fext(fext),
-	damping_factor(damping_factor) {
-
-	// compute L and J
-	TripletList LTriplets, JTriplets;
-	// L
-	L.resize(3 * n_points, 3 * n_points);
-	unsigned int k = 0; // spring counter
-	for (Edge& i : spring_list) {
-		for (int j = 0; j < 3; j++) {
-			LTriplets.push_back(
-				Triplet(3 * i.first  + j, 3 * i.first + j,   1 * stiffnesses[k]));
-			LTriplets.push_back(
-				Triplet(3 * i.first  + j, 3 * i.second + j, -1 * stiffnesses[k]));
-			LTriplets.push_back(
-				Triplet(3 * i.second + j, 3 * i.first  + j, -1 * stiffnesses[k]));
-			LTriplets.push_back(
-				Triplet(3 * i.second + j, 3 * i.second + j,  1 * stiffnesses[k]));
-		}
-		k++;
-	}
-	L.setFromTriplets(LTriplets.begin(), LTriplets.end());
-
-	// J
-	J.resize(3 * n_points, 3 * n_springs);
-	k = 0; // spring counter
-	for (Edge& i : spring_list) {
-		for (unsigned int j = 0; j < 3; j++) {
-			JTriplets.push_back(
-				Triplet(3 * i.first  + j, 3 * k + j,  1 * stiffnesses[k]));
-			JTriplets.push_back(
-				Triplet(3 * i.second + j, 3 * k + j, -1 * stiffnesses[k]));
-		}
-		k++;
-	}
-	J.setFromTriplets(JTriplets.begin(), JTriplets.end());
-
-	// compute M
-	TripletList MTriplets;
-	this->M.resize(3 * n_points, 3 * n_points);
-	for (unsigned int i = 0; i < n_points; i++) {
-		MTriplets.push_back(Triplet(3 * i + 0, 3 * i + 0, masses[i]));
-		MTriplets.push_back(Triplet(3 * i + 1, 3 * i + 1, masses[i]));
-		MTriplets.push_back(Triplet(3 * i + 2, 3 * i + 2, masses[i]));
-	}
-	this->M.setFromTriplets(MTriplets.begin(), MTriplets.end());
-}
+	rest_lengths(rest_lengths), stiffnesses(stiffnesses), masses(masses),
+	fext(fext), damping_factor(damping_factor) {}
 
 // S O L V E R //////////////////////////////////////////////////////////////////////////////////////
 MassSpringSolver::MassSpringSolver(mass_spring_system* system, float* vbuff) 
@@ -69,9 +24,53 @@ MassSpringSolver::MassSpringSolver(mass_spring_system* system, float* vbuff)
 	prev_state(current_state), spring_directions(system->n_springs * 3) {
 	
 	float h2 = system->time_step * system->time_step; // shorthand
+
+	// compute M, L, J
+	TripletList LTriplets, JTriplets;
+	// L
+	L.resize(3 * system->n_points, 3 * system->n_points);
+	unsigned int k = 0; // spring counter
+	for (Edge& i : system->spring_list) {
+		for (int j = 0; j < 3; j++) {
+			LTriplets.push_back(
+				Triplet(3 * i.first + j, 3 * i.first  + j,  1 * system->stiffnesses[k]));
+			LTriplets.push_back(
+				Triplet(3 * i.first + j, 3 * i.second + j, -1 * system->stiffnesses[k]));
+			LTriplets.push_back(
+				Triplet(3 * i.second + j, 3 * i.first + j, -1 * system->stiffnesses[k]));
+			LTriplets.push_back(
+				Triplet(3 * i.second + j, 3 * i.second + j, 1 * system->stiffnesses[k]));
+		}
+		k++;
+	}
+	L.setFromTriplets(LTriplets.begin(), LTriplets.end());
+
+	// J
+	J.resize(3 * system->n_points, 3 * system->n_springs);
+	k = 0; // spring counter
+	for (Edge& i : system->spring_list) {
+		for (unsigned int j = 0; j < 3; j++) {
+			JTriplets.push_back(
+				Triplet(3 * i.first  + j, 3 * k + j,  1 * system->stiffnesses[k]));
+			JTriplets.push_back(
+				Triplet(3 * i.second + j, 3 * k + j, -1 * system->stiffnesses[k]));
+		}
+		k++;
+	}
+	J.setFromTriplets(JTriplets.begin(), JTriplets.end());
+
+	// M
+	TripletList MTriplets;
+	M.resize(3 * system->n_points, 3 * system->n_points);
+	for (unsigned int i = 0; i < system->n_points; i++) {
+		for (int j = 0; j < 3; j++) {
+			MTriplets.push_back(Triplet(3 * i + j, 3 * i + j, system->masses[i]));
+		}
+	}
+	M.setFromTriplets(MTriplets.begin(), MTriplets.end());
 	
 	// pre-factor system matrix
-	SparseMatrix A = system->M + h2 * system->L;
+	SparseMatrix A = M + h2 * L;
 	system_matrix.analyzePattern(A);
 	system_matrix.factorize(A); 
 }
@@ -81,7 +80,7 @@ void MassSpringSolver::globalStep() {
 
 	// compute right hand side
 	VectorXf b = inertial_term
-		+ h2 * system->J * spring_directions
+		+ h2 * J * spring_directions
 		+ h2 * system->fext;
 
 	// solve system and update state
@@ -109,7 +108,7 @@ void MassSpringSolver::solve(unsigned int n) {
 	float a = system->damping_factor; // shorthand
 
 	// update inertial term
-	inertial_term = system->M * ((a + 1) * (current_state) - a * prev_state);
+	inertial_term = M * ((a + 1) * (current_state) - a * prev_state);
 
 	// save current state in previous state
 	prev_state = current_state;
@@ -127,7 +126,7 @@ void MassSpringSolver::timedSolve(unsigned int ms) {
 
 
 // B U I L D E R ////////////////////////////////////////////////////////////////////////////////////
-mass_spring_system* MassSpringBuilder::UniformGrid(
+mass_spring_system* MassSpringBuilder::buildUniformGrid(
 	unsigned int n,
 	float time_step,
 	float rest_length,
@@ -139,6 +138,9 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	// n must be odd
 	assert(n % 2 == 1);
 
+	// shorthand
+	const double root2 = 1.41421356237;
+
 	// compute n_points and n_springs
 	unsigned int n_points = n * n;
 	unsigned int n_springs = (n - 1) * (5 * n - 2);
@@ -147,7 +149,7 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	VectorXf masses(mass * VectorXf::Ones(n_springs));
 
 	// build spring list and spring parameters
-	EdgeList spring_list;
+	EdgeList spring_list(n_springs);
 	VectorXf rest_lengths(n_springs);
 	VectorXf stiffnesses(n_springs);
 	unsigned int k = 0; // spring counter
@@ -160,13 +162,13 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 
 			if (i == n - 1) {
 				// structural spring
-				spring_list.push_back(Edge(n * i + j, n * i + j + 1));
+				spring_list[k] = Edge(n * i + j, n * i + j + 1);
 				rest_lengths[k] = rest_length;
 				stiffnesses[k++] = stiffness;
 
 				// bending spring
 				if (j % 2 == 0) {
-					spring_list.push_back(Edge(n * i + j, n * i + j + 2));
+					spring_list[k] = Edge(n * i + j, n * i + j + 2);
 					rest_lengths[k] = 2 * rest_length;
 					stiffnesses[k++] = stiffness;
 				}
@@ -176,13 +178,13 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			// right edge
 			if (j == n - 1) {
 				// structural spring
-				spring_list.push_back(Edge(n * i + j, n * (i + 1) + j));
+				spring_list[k] = Edge(n * i + j, n * (i + 1) + j);
 				rest_lengths[k] = rest_length;
 				stiffnesses[k++] = stiffness;
 
 				// bending spring
 				if (i % 2 == 0){
-					spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
+					spring_list[k] = Edge(n * i + j, n * (i + 2) + j);
 					rest_lengths[k] = 2 * rest_length;
 					stiffnesses[k++] = stiffness;
 				}
@@ -190,31 +192,31 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 			}
 
 			// structural springs
-			spring_list.push_back(Edge(n * i + j, n * i + j + 1));
-			spring_list.push_back(Edge(n * i + j, n * (i + 1) + j));
+			spring_list[k] = Edge(n * i + j, n * i + j + 1);
 			rest_lengths[k] = rest_length;
 			stiffnesses[k++] = stiffness;
 
+			spring_list[k] = Edge(n * i + j, n * (i + 1) + j);
 			rest_lengths[k] = rest_length;
 			stiffnesses[k++] = stiffness;
 
 			// shearing springs
-			spring_list.push_back(Edge(n * i + j, n * (i + 1) + j + 1));
-			spring_list.push_back(Edge(n * (i + 1) + j, n * i + j + 1));
-			rest_lengths[k] = 1.41421356237f * rest_length;
+			spring_list[k] = Edge(n * i + j, n * (i + 1) + j + 1);
+			rest_lengths[k] = root2 * rest_length;
 			stiffnesses[k++] = stiffness;
 
-			rest_lengths[k] = 1.41421356237f * rest_length;
+			spring_list[k] = Edge(n * (i + 1) + j, n * i + j + 1);
+			rest_lengths[k] = root2 * rest_length;
 			stiffnesses[k++] = stiffness;
 
 			// bending springs
 			if (j % 2 == 0) {
-				spring_list.push_back(Edge(n * i + j, n * i + j + 2));
+				spring_list[k] = Edge(n * i + j, n * i + j + 2);
 				rest_lengths[k] = 2 * rest_length;
 				stiffnesses[k++] = stiffness;
 			}
 			if (i % 2 == 0) {
-				spring_list.push_back(Edge(n * i + j, n * (i + 2) + j));
+				spring_list[k] = Edge(n * i + j, n * (i + 2) + j);
 				rest_lengths[k] = 2 * rest_length;
 				stiffnesses[k++] = stiffness;
 			}
@@ -222,16 +224,28 @@ mass_spring_system* MassSpringBuilder::UniformGrid(
 	}
 
 	// compute external forces
-	VectorXf fext(Vector3f(0, 0, -gravity).replicate(n_points, 1));
-	auto temp = new mass_spring_system(n_points, n_springs, time_step,
-		spring_list, rest_lengths, stiffnesses, masses, fext, damping_factor);
-	return temp;
+	VectorXf fext = Vector3f(0, 0, -gravity).replicate(n_points, 1);
+
+	return new mass_spring_system(n_points, n_springs, time_step, spring_list, rest_lengths,
+		stiffnesses, masses, fext, damping_factor);
 }
 
-PointFixer::PointFixer(float*  vbuff, int buffSize) : vbuff(vbuff), buffSize(buffSize) {}
-void PointFixer::addPoint(int i) { fix_map[i] = Vector3f(vbuff[i], vbuff[i + 1], vbuff[i + 2]); }
-void PointFixer::removePoint(int i) { fix_map.erase(i); }
-void PointFixer::fixPoints() {
+MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridStructIndex(unsigned int n) {
+	//unsigned int len = 
+}
+
+// R E S P O N D E R ////////////////////////////////////////////////////////////////////////////////
+MassSpringResponder::MassSpringResponder(mass_spring_system* system, float* vbuff) 
+	: system(system), vbuff(vbuff) {}
+void MassSpringResponder::fixPoint(int i) { 
+	assert(i > 0 && i < system->n_points);
+	fix_map[3 * i] = Vector3f(vbuff[3 * i], vbuff[3 * i + 1], vbuff[3 * i + 2]); 
+}
+void MassSpringResponder::releasePoint(int i) { fix_map.erase(i); }
+void MassSpringResponder::constrainSprings() {
+
+}
+void MassSpringResponder::constrainPoints() {
 	for (auto fix : fix_map)
 		for (int i = 0; i < 3; i++)
 			vbuff[fix.first + i] = fix.second[i];

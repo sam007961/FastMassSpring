@@ -33,8 +33,7 @@ static PhongShader* g_phongShader; // linked phong shader
 static PickShader* g_pickShader; // linked pick shader
 
 // Mesh
-static Mesh g_clothMesh; // halfedge data structure
-static mesh_data g_meshData; // pointers to data buffers
+static Mesh* g_clothMesh; // halfedge data structure
 
 // Render Target
 static ProgramInput* g_render_target; // vertex, normal, texutre, index
@@ -167,36 +166,27 @@ static void initShaders() {
 }
 
 static void initCloth() {
-	// generate mesh
+	// short hand
 	const int n = SystemParam::n;
 	const float w = SystemParam::w;
-	MeshBuilder::buildGridNxN(g_clothMesh, w, n);
+
+	// generate mesh
+	g_clothMesh = MeshBuilder::buildUniformGrid(w, n);
 
 	// build index buffer
-	g_meshData.ibuffLen = 6 * (n - 1) * (n - 1);
-	g_meshData.ibuff = new unsigned int[g_meshData.ibuffLen];
-	
-	MeshBuilder::buildGridIBuffNxN(g_meshData.ibuff, n);
-
-	// extract data buffers
-	g_meshData.vbuffLen = g_meshData.nbuffLen = n * n * 3;
-	g_meshData.tbuffLen = n * n * 2;
-
-	g_meshData.vbuff = VERTEX_DATA(g_clothMesh);
-	g_meshData.nbuff = NORMAL_DATA(g_clothMesh);
-	g_meshData.tbuff = TEXTURE_DATA(g_clothMesh);
+	g_clothMesh->useIBuff(MeshBuilder::buildUniformGridTrianglesIBuff(n));
 
 	// fill program input
 	g_render_target = new ProgramInput;
-	g_render_target->setPositionData(g_meshData.vbuff, g_meshData.vbuffLen);
-	g_render_target->setNormalData(g_meshData.nbuff, g_meshData.nbuffLen);
-	g_render_target->setTextureData(g_meshData.tbuff, g_meshData.tbuffLen);
-	g_render_target->setIndexData(g_meshData.ibuff, g_meshData.ibuffLen);
+	g_render_target->setPositionData(g_clothMesh->vbuff(), g_clothMesh->vbuffLen());
+	g_render_target->setNormalData(g_clothMesh->nbuff(), g_clothMesh->nbuffLen());
+	g_render_target->setTextureData(g_clothMesh->tbuff(), g_clothMesh->tbuffLen());
+	g_render_target->setIndexData(g_clothMesh->ibuff(), g_clothMesh->ibuffLen());
 
 	checkGlErrors();
 
 	// initialize mass spring system
-	g_system = MassSpringBuilder::UniformGrid(
+	g_system = MassSpringBuilder::buildUniformGrid(
 		SystemParam::n,
 		SystemParam::h,
 		SystemParam::r,
@@ -207,7 +197,7 @@ static void initCloth() {
 	);
 
 	// initialize mass spring solver
-	g_solver = new MassSpringSolver(g_system, g_meshData.vbuff);
+	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
 
 	// fix top corners
 	g_fixer = new PointFixer(g_meshData.vbuff, g_meshData.vbuffLen);
@@ -300,7 +290,7 @@ static void drawCloth(bool picking) {
 		renderer.setProjection(g_ProjectionMatrix);
 		g_pickShader->setTessFact(SystemParam::n);
 		renderer.setProgramInput(*g_render_target);
-		renderer.draw(g_meshData.ibuffLen);
+		renderer.draw(g_clothMesh->ibuffLen());
 	}
 	else {
 		Renderer renderer;
@@ -309,7 +299,7 @@ static void drawCloth(bool picking) {
 		
 		renderer.setProjection(g_ProjectionMatrix);
 		renderer.setProgramInput(*g_render_target);
-		renderer.draw(g_meshData.ibuffLen);
+		renderer.draw(g_clothMesh->ibuffLen());
 		checkGlErrors();
 	}
 }
@@ -325,9 +315,9 @@ static void animateCloth(int value) {
 	}
 
 	// update normals
-	g_clothMesh.request_face_normals();
-	g_clothMesh.update_normals();
-	g_clothMesh.release_face_normals();
+	g_clothMesh->request_face_normals();
+	g_clothMesh->update_normals();
+	g_clothMesh->release_face_normals();
 
 	// update target
 	updateRenderTarget();
@@ -347,15 +337,16 @@ static void updateProjection() {
 
 static void updateRenderTarget() {
 	// update vertex positions
-	g_render_target->setPositionData(g_meshData.vbuff, g_meshData.vbuffLen);
+	g_render_target->setPositionData(g_clothMesh->vbuff(), g_clothMesh->vbuffLen());
 
 	// update vertex normals
-	g_render_target->setNormalData(g_meshData.nbuff, g_meshData.nbuffLen);
+	g_render_target->setNormalData(g_clothMesh->nbuff(), g_clothMesh->vbuffLen());
 
 }
 
 // C L E A N  U P //////////////////////////////////////////////////////////////////
 static void cleanUp() {
+	delete g_clothMesh;
 	// delete mass-spring system
 	delete g_system;
 	delete g_solver;

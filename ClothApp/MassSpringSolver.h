@@ -3,14 +3,14 @@
 #include <Eigen/Sparse>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+
 
 struct mass_spring_system { 
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
 	typedef Eigen::VectorXf VectorXf;
 	typedef std::pair<unsigned int, unsigned int> Edge;
 	typedef std::vector<Edge> EdgeList;
-	typedef Eigen::Triplet<float> Triplet;
-	typedef std::vector<Triplet> TripletList;
 	
 	// parameters
 	unsigned int n_points; // number of points
@@ -18,14 +18,13 @@ struct mass_spring_system {
 	float time_step; // time step
 	EdgeList spring_list; // spring edge list
 	VectorXf rest_lengths; // spring rest lengths
+	VectorXf stiffnesses; // spring stiffnesses
+	VectorXf masses; // point masses
 	VectorXf fext; // external forces
 	float damping_factor; // damping factor
 	
 
-	// system matrices
-	SparseMatrix M;
-	SparseMatrix L;
-	SparseMatrix J;
+	
 	
 	mass_spring_system(
 		unsigned int n_points,       // number of points
@@ -48,10 +47,17 @@ private:
 	typedef Eigen::SimplicialCholesky<Eigen::SparseMatrix<float> > Cholesky;
 	typedef Eigen::Map<Eigen::VectorXf> Map;
 	typedef std::pair<unsigned int, unsigned int> Edge;
+	typedef Eigen::Triplet<float> Triplet;
+	typedef std::vector<Triplet> TripletList;
 
 	// system
 	mass_spring_system* system;
 	Cholesky system_matrix;
+
+	// M, L, J matrices
+	SparseMatrix M;
+	SparseMatrix L;
+	SparseMatrix J;
 
 	// state
 	Map current_state; // q(n), current state
@@ -74,15 +80,16 @@ public:
 class MassSpringBuilder {
 private:
 	typedef Eigen::Vector3f Vector3f;
-	typedef Eigen::VectorXf VectorXf;
+	typedef Eigen::VectorXf VectorXf;	
 	typedef std::pair<unsigned int, unsigned int> Edge;
 	typedef std::vector<Edge> EdgeList;
 	typedef Eigen::Triplet<float> Triplet;
 	typedef std::vector<Triplet> TripletList;
+	typedef std::vector<unsigned int> IndexList;
 
 public:
-	static mass_spring_system* UniformGrid(
-		unsigned int n,          // grid size
+	static mass_spring_system* buildUniformGrid(
+		unsigned int n,          // grid width
 		float time_step,         // time step
 		float rest_length,       // spring rest length (non-diagonal)
 		float stiffness,         // spring stiffness
@@ -90,20 +97,56 @@ public:
 		float damping_factor,    // damping factor
 		float gravity            // gravitationl force (-z axis)
 	);
+
+
+	// indices
+	static IndexList buildUniformGridStructIndex(unsigned int n); // structural springs
+	static IndexList buildUniformGridShearIndex(unsigned int n); // shearing springs
+	static IndexList buildUniformGridBendIndex(unsigned int n); // bending springs
 };
 
-class PointFixer {
+class MassSpringConstraint {
+protected:
+	typedef std::vector<MassSpringConstraint*> NodeList;
+	NodeList children;
+	std::unordered_set<unsigned int> target;
+
+};
+
+class MassConstraint : public MassSpringConstraint {
+
+
+};
+
+class SpringConstraint : public MassSpringConstraint {
+protected:
+	typedef std::pair<unsigned int, unsigned int> Edge;
+	typedef std::unordered_set<Edge> EdgeSet;
+
+};
+// TODO: takes mass and spring constraints along with target list
+class MassSpringConstrainer {
 private:
 	typedef Eigen::Vector3f Vector3f;
 	typedef std::unordered_map<int, Vector3f> index_map;
 
-	int buffSize; // size of vertex buffer
+	mass_spring_system* system; // mass-spring system
 	float* vbuff; // vertex buffer
 	index_map fix_map; // list of fixed points
 
 public:
-	PointFixer(float* vbuff, int buffSize);
-	void addPoint(int i); // add point at index i to list
-	void removePoint(int i); // remove point at index i from list
-	void fixPoints();
+	MassSpringConstrainer(mass_spring_system* system, float* vbuff);
+	void fixPoint(int i); // add point at index i to list
+	void releasePoint(int i); // remove point at index i from list
+	void constrainSprings(); // prevent exessive spring deformation
+	void constrainPoints(); // fix points to list values
+};
+
+class FixedPointConstraint : public MassSpringConstraint {
+	mass_spring_system* system;
+	float* vbuff;
+	typedef std::vector<unsigned int> IndexList;
+
+public:
+	FixedPointResponse
 };
