@@ -7,7 +7,7 @@ class NonCopyable {
 public:
 	NonCopyable() {}
 	NonCopyable(const NonCopyable& other) {}
-	NonCopyable& operator=(const NonCopyable& other) {}
+	NonCopyable& operator=(const NonCopyable& other) { return NonCopyable(); }
 };
 
 class GLShader : public NonCopyable {

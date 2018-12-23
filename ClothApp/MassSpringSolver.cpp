@@ -232,29 +232,74 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridStructIndex(unsigned int n) {
 	// TODO
+	return IndexList();
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridShearIndex(unsigned int n) {
 	// TODO
+	return IndexList();
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridBendIndex(unsigned int n) {
 	// TODO
+	return IndexList();
 }
 
 // C O N S T R A I N T //////////////////////////////////////////////////////////////////////////////
-MassSpringResponder::MassSpringResponder(mass_spring_system* system, float* vbuff) 
-	: system(system), vbuff(vbuff) {}
-void MassSpringResponder::fixPoint(int i) { 
-	assert(i > 0 && i < system->n_points);
-	fix_map[3 * i] = Vector3f(vbuff[3 * i], vbuff[3 * i + 1], vbuff[3 * i + 2]); 
-}
-void MassSpringResponder::releasePoint(int i) { fix_map.erase(i); }
-void MassSpringResponder::constrainSprings() {
+CgNode::CgNode(mass_spring_system* system, float* vbuff) : system(system), vbuff(vbuff) {}
 
+CgPointNode::CgPointNode(mass_spring_system* system, float* vbuff) : CgNode(system, vbuff) {}
+bool CgPointNode::accept(CgNodeVisitor& visitor) { return visitor.visit(*this); }
+
+CgSpringNode::CgSpringNode(mass_spring_system* system, float* vbuff) : CgNode(system, vbuff) {}
+bool CgSpringNode::accept(CgNodeVisitor& visitor) {
+	if (!visitor.visit(*this)) return false;
+	for (CgNode* child : children) {
+		if (!child->accept(visitor)) return false;
+	}
+	return true;
 }
-void MassSpringResponder::constrainPoints() {
+void CgSpringNode::addChild(CgNode* node) { children.push_back(node); }
+void CgSpringNode::removeChild(CgNode* node) { 
+	children.erase(find(children.begin(), children.end(), node)); 
+}
+CgRootNode::CgRootNode(mass_spring_system* system, float* vbuff) : CgSpringNode(system, vbuff) {}
+bool CgRootNode::query(unsigned int i) { return false; }
+void CgRootNode::satisfy() { return; }
+bool CgRootNode::accept(CgNodeVisitor& visitor) {
+	for (CgNode* child : children) {
+		if (!child->accept(visitor)) return false;
+	}
+	return true;
+}
+CgPointFixNode::CgPointFixNode(mass_spring_system* system, float* vbuff) : CgPointNode(system, vbuff) {}
+bool CgPointFixNode::query(unsigned int i) { return fix_map.find(i) != fix_map.end(); }
+void CgPointFixNode::satisfy() {
 	for (auto fix : fix_map)
 		for (int i = 0; i < 3; i++)
 			vbuff[fix.first + i] = fix.second[i];
 }
+void CgPointFixNode::fixPoint(int i) {
+	assert(i >= 0 && i < system->n_points);
+	fix_map[3 * i] = Vector3f(vbuff[3 * i], vbuff[3 * i + 1], vbuff[3 * i + 2]);
+}
+void CgPointFixNode::releasePoint(int i) { fix_map.erase(3 * i); }
+
+//bool CgSpringDeformationNode::query(unsigned int i) { return items.find(i) != items.end(); }
+
+bool CgNodeVisitor::visit(CgPointNode& node) { return true; }
+bool CgNodeVisitor::visit(CgSpringNode& node) { return true; }
+
+bool CgPointQueryVisitor::visit(CgPointNode& node) {
+	queryResult = node.query(i);
+	return !queryResult;
+}
+bool CgPointQueryVisitor::queryPoint(CgNode& root, unsigned int i) {
+	this->i = i;
+	root.accept(*this);
+	return queryResult;
+}
+
+bool CgSatisfyVisitor::visit(CgPointNode& node) { node.satisfy(); return true; }
+bool CgSatisfyVisitor::visit(CgSpringNode& node) { node.satisfy(); return true; }
+void CgSatisfyVisitor::satisfy(CgNode& root) { root.accept(*this); }

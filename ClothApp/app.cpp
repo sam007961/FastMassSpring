@@ -48,7 +48,9 @@ static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time
 // Mass Spring System
 static mass_spring_system* g_system;
 static MassSpringSolver* g_solver;
-static PointFixer * g_fixer;
+
+// Constraint Graph
+static CgRootNode* g_cgRootNode;
 
 // System parameters
 namespace SystemParam {
@@ -198,13 +200,20 @@ static void initCloth() {
 	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
 
+	// build constraint graph
+	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
+	
 	// fix top corners
-	g_fixer = new PointFixer(g_meshData.vbuff, g_meshData.vbuffLen);
-	g_fixer->addPoint(0);
-	g_fixer->addPoint((SystemParam::n - 1) * 3);
+	CgPointFixNode* cornerFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
+	cornerFixer->fixPoint(0);
+	cornerFixer->fixPoint(SystemParam::n - 1);
 
 	// initialize user interaction
-	UI = new UserInteraction(g_meshData.vbuff, SystemParam::n);
+	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
+	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), SystemParam::n);
+
+	g_cgRootNode->addChild(cornerFixer);
+	g_cgRootNode->addChild(mouseFixer);
 }
 
 static void initScene() {
@@ -309,8 +318,8 @@ static void animateCloth(int value) {
 		// solve system
 		g_solver->solve(g_iter);
 		// fix points
-		UI->fixPoints();
-		g_fixer->fixPoints();
+		CgSatisfyVisitor visitor;
+		visitor.satisfy(*g_cgRootNode);
 	}
 
 	// update normals
@@ -349,7 +358,6 @@ static void cleanUp() {
 	// delete mass-spring system
 	delete g_system;
 	delete g_solver;
-	delete g_fixer;
 }
 
 // E R R O R S /////////////////////////////////////////////////////////////////////

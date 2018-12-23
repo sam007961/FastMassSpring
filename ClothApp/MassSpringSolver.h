@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
+// Mass-Spring System struct
 struct mass_spring_system { 
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
 	typedef Eigen::VectorXf VectorXf;
@@ -23,9 +23,6 @@ struct mass_spring_system {
 	VectorXf fext; // external forces
 	float damping_factor; // damping factor
 	
-
-	
-	
 	mass_spring_system(
 		unsigned int n_points,       // number of points
 		unsigned int n_springs,      // number of springs
@@ -39,6 +36,7 @@ struct mass_spring_system {
 	);
 };
 
+// Mass-Spring System Solver class
 class MassSpringSolver {
 private:
 	typedef Eigen::Vector3f Vector3f;
@@ -77,6 +75,8 @@ public:
 	void timedSolve(unsigned int ms);
 };
 
+// Mass-Spring System Builder Class
+// TODO: refactor builder class to be non-static, i.e implement proper builder pattern
 class MassSpringBuilder {
 private:
 	typedef Eigen::Vector3f Vector3f;
@@ -105,60 +105,101 @@ public:
 	static IndexList buildUniformGridBendIndex(unsigned int n); // bending springs
 };
 
+// Constraint Graph
+class CgNodeVisitor; // Constraint graph node visitor
 
-class ConstraintVisitor;
-
-class MassSpringConstraint {
+// Constraint graph node
+class CgNode {
 protected:
-	typedef std::vector<MassSpringConstraint*> NodeList;
+	mass_spring_system* system;
+	float* vbuff;
+
+public:
+	CgNode(mass_spring_system* system, float* vbuff);
+
+	virtual bool query(unsigned int i) = 0; // check if item with index i is constrained
+	virtual void satisfy() = 0; // satisfy constraint
+	virtual bool accept(CgNodeVisitor& visitor) = 0; // accept visitor
+
+};
+
+// point constraint node
+class CgPointNode : public CgNode {
+public:
+	CgPointNode(mass_spring_system* system, float* vbuff);
+
+	virtual bool accept(CgNodeVisitor& visitor);
+
+};
+
+// spring constraint node
+class CgSpringNode : public CgNode {
+protected:
+	typedef std::vector<CgNode*> NodeList;
 	NodeList children;
 
 public:
-	virtual bool checkCondition(unsigned int i) const = 0;
-	virtual void satisfy() = 0;
-	bool accept(ConstraintVisitor* visitor);
+	CgSpringNode(mass_spring_system* system, float* vbuff);
 
+	virtual bool accept(CgNodeVisitor& visitor);
+	void addChild(CgNode* node);
+	void removeChild(CgNode* node);
 };
 
-class RootConstraint : public MassSpringConstraint {
+// root node 
+class CgRootNode : public CgSpringNode {
 public:
-	virtual bool checkCondition(unsigned int i);
+	CgRootNode(mass_spring_system* system, float* vbuff);
+
+	virtual bool query(unsigned int i);
 	virtual void satisfy();
+	virtual bool accept(CgNodeVisitor& visitor);
 };
 
-class PointConstraint : public MassSpringConstraint {
+class CgPointFixNode : public CgPointNode {
 protected:
-	std::unordered_set<unsigned int> target;
-
-public:
-
-
-};
-
-class SpringConstraint : public MassSpringConstraint {
-protected:
-	typedef std::pair<unsigned int, unsigned int> Edge;
-	typedef std::unordered_set<Edge> EdgeSet;
-
-};
-
-class PointQueryVisitor;
-class SpringQueryVisitor;
-class SatisfyVisitor;
-
-class MassSpringConstrainer {
-private:
 	typedef Eigen::Vector3f Vector3f;
-	typedef std::unordered_map<int, Vector3f> index_map;
-
-	mass_spring_system* system; // mass-spring system
-	float* vbuff; // vertex buffer
-	index_map fix_map; // list of fixed points
-
+	std::unordered_map<unsigned int, Vector3f> fix_map;
 public:
-	MassSpringConstrainer(mass_spring_system* system, float* vbuff);
+	CgPointFixNode(mass_spring_system* system, float* vbuff);
+	virtual bool query(unsigned int i);
+	virtual void satisfy();
+
 	void fixPoint(int i); // add point at index i to list
 	void releasePoint(int i); // remove point at index i from list
-	void constrainSprings(); // prevent exessive spring deformation
-	void constrainPoints(); // fix points to list values
+};
+
+// TODO: add spring deformation constraint
+
+//class CgSpringDeformationNode : public CgSpringNode {
+//protected:
+//	std::unordered_set<unsigned int> items;
+//
+//public:
+//	virtual bool query(unsigned int i);
+//	virtual void satisfy();
+//};
+
+class CgNodeVisitor {
+public:
+	virtual bool visit(CgPointNode& node);
+	virtual bool visit(CgSpringNode& node);
+};
+
+class CgPointQueryVisitor : public CgNodeVisitor {
+private:
+	unsigned int i;
+	bool queryResult;
+public:
+	virtual bool visit(CgPointNode& node);
+
+	bool queryPoint(CgNode& root, unsigned int i);
+};
+
+class CgSatisfyVisitor : public CgNodeVisitor {
+public:
+	virtual bool visit(CgPointNode& node);
+	virtual bool visit(CgSpringNode& node);
+
+	void satisfy(CgNode& root);
 };

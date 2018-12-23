@@ -7,10 +7,10 @@ float* Mesh::tbuff() { return TEXTURE_DATA(this); }
 unsigned int* Mesh::ibuff() { return &_ibuff[0]; }
 void Mesh::useIBuff(std::vector<unsigned int>& _ibuff) { this->_ibuff = _ibuff; }
 
-unsigned int Mesh::vbuffLen() { n_vertices() * 3; }
-unsigned int Mesh::nbuffLen() { n_vertices() * 3; }
-unsigned int Mesh::tbuffLen() { n_vertices() * 2; }
-unsigned int Mesh::ibuffLen() { _ibuff.size(); }
+unsigned int Mesh::vbuffLen() { return n_vertices() * 3; }
+unsigned int Mesh::nbuffLen() { return n_vertices() * 3; }
+unsigned int Mesh::tbuffLen() { return n_vertices() * 2; }
+unsigned int Mesh::ibuffLen() { return _ibuff.size(); }
 
 
 // M E S H  B U I L D E R /////////////////////////////////////////////////////////////////////
@@ -57,6 +57,7 @@ Mesh* MeshBuilder::buildUniformGrid(float w, int n) {
 	mesh->request_face_normals();
 	mesh->update_normals();
 	mesh->release_face_normals();
+	return mesh;
 }
 
 std::vector<unsigned int> MeshBuilder::buildUniformGridTrianglesIBuff(int n) {
