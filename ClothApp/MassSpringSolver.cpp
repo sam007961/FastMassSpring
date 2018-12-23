@@ -416,6 +416,30 @@ void CgSpringDeformationNode::addSprings(std::vector<unsigned int> springs) {
 	items.insert(springs.begin(), springs.end());
 }
 
+
+CgSphereCollisionNode::CgSphereCollisionNode(mass_spring_system* system, float* vbuff,
+	float radius, Vector3f center) : CgPointNode(system, vbuff), radius(radius), center(center) {}
+bool CgSphereCollisionNode::query(unsigned int i) { return false; }
+void CgSphereCollisionNode::satisfy() {
+	for (int i = 0; i < system->n_points; i++) {
+		Vector3f p(
+			vbuff[3 * i + 0] - center[0],
+			vbuff[3 * i + 1] - center[1],
+			vbuff[3 * i + 2] - center[2]
+		);
+
+		if (p.norm() < radius) {
+			p.normalize();
+			p = radius * p;
+		}
+		else continue;
+
+		for (int j = 0; j < 3; j++) {
+			vbuff[3 * i + j] = p[j] + center[j];
+		}
+	}
+}
+
 bool CgNodeVisitor::visit(CgPointNode& node) { return true; }
 bool CgNodeVisitor::visit(CgSpringNode& node) { return true; }
 

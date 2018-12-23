@@ -157,7 +157,7 @@ public:
 };
 
 class CgPointFixNode : public CgPointNode {
-protected:
+private:
 	typedef Eigen::Vector3f Vector3f;
 	std::unordered_map<unsigned int, Vector3f> fix_map;
 public:
@@ -170,7 +170,7 @@ public:
 };
 
 class CgSpringDeformationNode : public CgSpringNode {
-protected:
+private:
 	typedef std::pair<unsigned int, unsigned int> Edge;
 	typedef Eigen::Vector3f Vector3f;
 	std::unordered_set<unsigned int> items;
@@ -187,7 +187,15 @@ public:
 };
 
 class CgSphereCollisionNode : public CgPointNode {
+private:
+	typedef Eigen::Vector3f Vector3f;
 
+	float radius;
+	Vector3f center;
+public:
+	CgSphereCollisionNode(mass_spring_system* system, float* vbuff, float radius, Vector3f center);
+	virtual bool query(unsigned int i);
+	virtual void satisfy();
 };
 
 class CgNodeVisitor {

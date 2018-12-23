@@ -40,8 +40,7 @@ static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
-static const int g_hps = 1; // time steps per frame | 4
-static const int g_iter = 8; // iterations per time step | 7
+static const int g_iter = 7; // iterations per time step | 7
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -59,7 +58,7 @@ namespace SystemParam {
 	static const int n = 61; // must be odd, n * n = n_vertices | 61
 	static const float w = 2.0f; // width | 10.0f
 	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
-	static const float r = w / (n - 1) + 0.005; // spring rest legnth
+	static const float r = w / (n - 1) + 0.0045; // spring rest legnth
 	static const float k = 1.2f; // spring stiffness | 2.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
 	static const float a = 0.993f; // damping, close to 1.0 | 0.993f
@@ -201,6 +200,10 @@ static void initCloth() {
 
 	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
+
+	// sphere collision
+	CgSphereCollisionNode* sphereCollisionNode =
+		new CgSphereCollisionNode(g_system, g_clothMesh->vbuff(), 1.0f, { 0, 0, -1 });
 	
 	// spring deformation constraint
 	CgSpringDeformationNode* structDeformationNode =
@@ -222,6 +225,7 @@ static void initCloth() {
 
 	// build constraint graph
 	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
+	g_cgRootNode->addChild(sphereCollisionNode);
 	g_cgRootNode->addChild(structDeformationNode);
 	structDeformationNode->addChild(shearDeformationNode);
 	shearDeformationNode->addChild(cornerFixer);
@@ -230,7 +234,7 @@ static void initCloth() {
 
 static void initScene() {
 	g_ModelViewMatrix = glm::lookAt(
-		glm::vec3(0.618, -0.786, 0.0f) * g_camera_distance,
+		glm::vec3(0.618, -0.786, 0.3f) * g_camera_distance,
 		glm::vec3(0.0f, 0.0f, -1.0f),
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, SystemParam::w / 4));
