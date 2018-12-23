@@ -231,10 +231,18 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridStructIndex(unsigned int n) {
-	//unsigned int len = 
+	// TODO
 }
 
-// R E S P O N D E R ////////////////////////////////////////////////////////////////////////////////
+MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridShearIndex(unsigned int n) {
+	// TODO
+}
+
+MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridBendIndex(unsigned int n) {
+	// TODO
+}
+
+// C O N S T R A I N T //////////////////////////////////////////////////////////////////////////////
 MassSpringResponder::MassSpringResponder(mass_spring_system* system, float* vbuff) 
 	: system(system), vbuff(vbuff) {}
 void MassSpringResponder::fixPoint(int i) { 

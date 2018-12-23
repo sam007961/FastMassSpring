@@ -141,6 +141,10 @@ ProgramInput::operator GLuint() const {
 }
 
 
+ProgramInput::~ProgramInput() {
+	// TODO: delete vbos and vao
+}
+
 // SHADER PROGRAMS ////////////////////////////////////////////////////////////////////////////
 PhongShader::PhongShader() : GLProgram() {}
 

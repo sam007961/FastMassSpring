@@ -41,7 +41,7 @@ public:
 	~GLProgram();
 };
 
-class ProgramInput {
+class ProgramInput : public NonCopyable {
 private:
 	GLuint handle; // vertex array object handle
 	GLuint vbo[4]; // vertex buffer object handles | position, normal, texture, index
@@ -56,6 +56,8 @@ public:
 	void setIndexData(unsigned int* buff, unsigned int len);
 
 	operator GLuint() const; // cast to GLuint
+
+	~ProgramInput();
 };
 
 class PhongShader : public GLProgram {

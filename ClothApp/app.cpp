@@ -83,7 +83,6 @@ static void display();
 static void reshape(int, int);
 static void mouse(int, int, int, int);
 static void motion(int, int);
-//static void keyboard(unsigned char, int, int);
 
 // draw cloth function
 static void drawCloth(bool picking);

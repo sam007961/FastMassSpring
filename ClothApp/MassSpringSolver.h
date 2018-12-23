@@ -105,15 +105,32 @@ public:
 	static IndexList buildUniformGridBendIndex(unsigned int n); // bending springs
 };
 
+
+class ConstraintVisitor;
+
 class MassSpringConstraint {
 protected:
 	typedef std::vector<MassSpringConstraint*> NodeList;
 	NodeList children;
-	std::unordered_set<unsigned int> target;
+
+public:
+	virtual bool checkCondition(unsigned int i) const = 0;
+	virtual void satisfy() = 0;
+	bool accept(ConstraintVisitor* visitor);
 
 };
 
-class MassConstraint : public MassSpringConstraint {
+class RootConstraint : public MassSpringConstraint {
+public:
+	virtual bool checkCondition(unsigned int i);
+	virtual void satisfy();
+};
+
+class PointConstraint : public MassSpringConstraint {
+protected:
+	std::unordered_set<unsigned int> target;
+
+public:
 
 
 };
@@ -124,7 +141,11 @@ protected:
 	typedef std::unordered_set<Edge> EdgeSet;
 
 };
-// TODO: takes mass and spring constraints along with target list
+
+class PointQueryVisitor;
+class SpringQueryVisitor;
+class SatisfyVisitor;
+
 class MassSpringConstrainer {
 private:
 	typedef Eigen::Vector3f Vector3f;
@@ -140,13 +161,4 @@ public:
 	void releasePoint(int i); // remove point at index i from list
 	void constrainSprings(); // prevent exessive spring deformation
 	void constrainPoints(); // fix points to list values
-};
-
-class FixedPointConstraint : public MassSpringConstraint {
-	mass_spring_system* system;
-	float* vbuff;
-	typedef std::vector<unsigned int> IndexList;
-
-public:
-	FixedPointResponse
 };
