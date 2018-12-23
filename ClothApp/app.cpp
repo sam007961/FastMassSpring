@@ -40,8 +40,8 @@ static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
-static const int g_hps = 4; // time steps per frame | 4
-static const int g_iter = 7; // iterations per time step | 7
+static const int g_hps = 1; // time steps per frame | 4
+static const int g_iter = 8; // iterations per time step | 7
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -51,21 +51,23 @@ static MassSpringSolver* g_solver;
 
 // Constraint Graph
 static CgRootNode* g_cgRootNode;
+static const float g_tauc = 0.15f; // critical spring deformation
+static const unsigned int g_deformIter = 10; // number of iterations for spring deformation constraint
 
 // System parameters
 namespace SystemParam {
-	static const int n = 41; // must be odd, n * n = n_vertices | 41
-	static const float w = 10.0f; // width | 10.0f
-	static const float h = 0.008f; // time step, smaller for better results | 0.008f
-	static const float r = w / (n - 1); // spring rest legnth
-	static const float k = 0.9f; // spring stiffness | 0.9f;
+	static const int n = 61; // must be odd, n * n = n_vertices | 61
+	static const float w = 2.0f; // width | 10.0f
+	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
+	static const float r = w / (n - 1) + 0.005; // spring rest legnth
+	static const float k = 1.2f; // spring stiffness | 2.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
-	static const float a = 0.995f; // damping, close to 1.0 | 0.995f
+	static const float a = 0.993f; // damping, close to 1.0 | 0.993f
 	static const float g = 9.8f * m; // gravitational force | 9.8f
 }
 
 // Scene parameters
-static const float g_camera_distance = 15.0f;
+static const float g_camera_distance = 4.0f;
 
 // Scene matrices
 static glm::mat4 g_ModelViewMatrix;
@@ -199,10 +201,16 @@ static void initCloth() {
 
 	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
-
-	// build constraint graph
-	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
 	
+	// spring deformation constraint
+	CgSpringDeformationNode* structDeformationNode =
+		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), g_tauc, g_deformIter);
+	structDeformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
+
+	CgSpringDeformationNode* shearDeformationNode =
+		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), g_tauc, g_deformIter);
+	shearDeformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
+
 	// fix top corners
 	CgPointFixNode* cornerFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
 	cornerFixer->fixPoint(0);
@@ -210,10 +218,14 @@ static void initCloth() {
 
 	// initialize user interaction
 	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
-	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), SystemParam::n);
+	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
 
-	g_cgRootNode->addChild(cornerFixer);
-	g_cgRootNode->addChild(mouseFixer);
+	// build constraint graph
+	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
+	g_cgRootNode->addChild(structDeformationNode);
+	structDeformationNode->addChild(shearDeformationNode);
+	shearDeformationNode->addChild(cornerFixer);
+	shearDeformationNode->addChild(mouseFixer);
 }
 
 static void initScene() {
@@ -282,7 +294,7 @@ static void motion(const int x, const int y) {
 		//glm::vec3 uy(g_ModelViewMatrix * glm::vec4(0, 1, 0, 0));
 		glm::vec3 ux(0, 1, 0);
 		glm::vec3 uy(0, 0, -1);
-		UI->movePoint(0.03f * (dx * ux + dy * uy));
+		UI->movePoint(0.01f * (dx * ux + dy * uy));
 	}
 
 	g_mouseClickX = x;
@@ -314,13 +326,12 @@ static void drawCloth(bool picking) {
 
 static void animateCloth(int value) {
 
-	for (int i = 0; i < g_hps; i++) {
-		// solve system
-		g_solver->solve(g_iter);
-		// fix points
-		CgSatisfyVisitor visitor;
-		visitor.satisfy(*g_cgRootNode);
-	}
+	// solve system
+	g_solver->solve(g_iter);
+
+	// fix points
+	CgSatisfyVisitor visitor;
+	visitor.satisfy(*g_cgRootNode);
 
 	// update normals
 	g_clothMesh->request_face_normals();

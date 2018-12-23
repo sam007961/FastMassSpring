@@ -169,16 +169,26 @@ public:
 	void releasePoint(int i); // remove point at index i from list
 };
 
-// TODO: add spring deformation constraint
+class CgSpringDeformationNode : public CgSpringNode {
+protected:
+	typedef std::pair<unsigned int, unsigned int> Edge;
+	typedef Eigen::Vector3f Vector3f;
+	std::unordered_set<unsigned int> items;
+	float tauc; // critical deformation rate
+	unsigned int n_iter; // number of iterations
 
-//class CgSpringDeformationNode : public CgSpringNode {
-//protected:
-//	std::unordered_set<unsigned int> items;
-//
-//public:
-//	virtual bool query(unsigned int i);
-//	virtual void satisfy();
-//};
+public:
+	CgSpringDeformationNode(mass_spring_system* system, float* vbuff, float tauc, unsigned int n_iter);
+	
+	virtual bool query(unsigned int i);
+	virtual void satisfy();
+
+	void addSprings(std::vector<unsigned int> springs);
+};
+
+class CgSphereCollisionNode : public CgPointNode {
+
+};
 
 class CgNodeVisitor {
 public:

@@ -231,13 +231,97 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridStructIndex(unsigned int n) {
-	// TODO
-	return IndexList();
+	std::vector<unsigned int> indices;
+	unsigned int k = 0; // spring counter
+	for(unsigned int i = 0; i < n; i++) {
+		for(unsigned int j = 0; j < n; j++) {
+			// bottom right corner
+			if(i == n - 1 && j == n - 1) {
+				continue;
+			}
+
+			if (i == n - 1) {
+				// structural spring
+				indices.push_back(k++);
+				// bending spring
+				if (j % 2 == 0) k++;
+				continue;
+			}
+
+			// right edge
+			if (j == n - 1) {
+				// structural spring
+				indices.push_back(k++);
+				// bending spring
+				if (i % 2 == 0) k++;
+				continue;
+			}
+
+			// structural springs
+			indices.push_back(k++);
+			indices.push_back(k++);
+
+			// shearing springs
+			k++;
+			k++;
+
+			// bending springs
+			if (j % 2 == 0) {
+				k++;
+			}
+			if (i % 2 == 0) {
+				k++;
+			}
+		}
+	}
+	return indices;
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridShearIndex(unsigned int n) {
-	// TODO
-	return IndexList();
+	std::vector<unsigned int> indices;
+	unsigned int k = 0; // spring counter
+	for (unsigned int i = 0; i < n; i++) {
+		for (unsigned int j = 0; j < n; j++) {
+			// bottom right corner
+			if (i == n - 1 && j == n - 1) {
+				continue;
+			}
+
+			if (i == n - 1) {
+				// structural spring
+				k++;
+				// bending spring
+				if (j % 2 == 0) k++;
+				continue;
+			}
+
+			// right edge
+			if (j == n - 1) {
+				// structural spring
+				k++;
+				// bending spring
+				if (i % 2 == 0) k++;
+				continue;
+			}
+
+			// structural springs
+			k++;
+			k++;
+
+			// shearing springs
+			indices.push_back(k++);
+			indices.push_back(k++);
+
+			// bending springs
+			if (j % 2 == 0) {
+				k++;
+			}
+			if (i % 2 == 0) {
+				k++;
+			}
+		}
+	}
+	return indices;
 }
 
 MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridBendIndex(unsigned int n) {
@@ -253,11 +337,10 @@ bool CgPointNode::accept(CgNodeVisitor& visitor) { return visitor.visit(*this); 
 
 CgSpringNode::CgSpringNode(mass_spring_system* system, float* vbuff) : CgNode(system, vbuff) {}
 bool CgSpringNode::accept(CgNodeVisitor& visitor) {
-	if (!visitor.visit(*this)) return false;
 	for (CgNode* child : children) {
 		if (!child->accept(visitor)) return false;
 	}
-	return true;
+	return visitor.visit(*this);
 }
 void CgSpringNode::addChild(CgNode* node) { children.push_back(node); }
 void CgSpringNode::removeChild(CgNode* node) { 
@@ -272,8 +355,9 @@ bool CgRootNode::accept(CgNodeVisitor& visitor) {
 	}
 	return true;
 }
-CgPointFixNode::CgPointFixNode(mass_spring_system* system, float* vbuff) : CgPointNode(system, vbuff) {}
-bool CgPointFixNode::query(unsigned int i) { return fix_map.find(i) != fix_map.end(); }
+CgPointFixNode::CgPointFixNode(mass_spring_system* system, float* vbuff) 
+	: CgPointNode(system, vbuff) {}
+bool CgPointFixNode::query(unsigned int i) { return fix_map.find(3 * i) != fix_map.end(); }
 void CgPointFixNode::satisfy() {
 	for (auto fix : fix_map)
 		for (int i = 0; i < 3; i++)
@@ -285,7 +369,52 @@ void CgPointFixNode::fixPoint(int i) {
 }
 void CgPointFixNode::releasePoint(int i) { fix_map.erase(3 * i); }
 
-//bool CgSpringDeformationNode::query(unsigned int i) { return items.find(i) != items.end(); }
+CgSpringDeformationNode::CgSpringDeformationNode(mass_spring_system* system, float* vbuff,
+	float tauc, unsigned int n_iter) : CgSpringNode(system, vbuff), tauc(tauc), n_iter(n_iter) {}
+bool CgSpringDeformationNode::query(unsigned int i) { return items.find(i) != items.end(); }
+void CgSpringDeformationNode::satisfy() {
+	for (int k = 0; k < n_iter; k++) {
+		for (unsigned int i : items) {
+			Edge spring = system->spring_list[i];
+			CgPointQueryVisitor visitor;
+
+			Vector3f p12(
+				vbuff[3 * spring.first + 0] - vbuff[3 * spring.second + 0],
+				vbuff[3 * spring.first + 1] - vbuff[3 * spring.second + 1],
+				vbuff[3 * spring.first + 2] - vbuff[3 * spring.second + 2]
+			);
+
+			float len = p12.norm();
+			float rlen = system->rest_lengths[i];
+			float diff = (len - (1 + tauc) * rlen) / len;
+			float rate = (len - rlen) / rlen;
+
+			// check deformation
+			if (rate <= tauc) continue;
+
+			// check if points are fixed
+			float f1, f2;
+			f1 = f2 = 0.5f;
+
+			// if first point is fixed
+			if (visitor.queryPoint(*this, spring.first)) { f1 = 0.0f; f2 = 1.0f; }
+
+			// if second point is fixed
+			if (visitor.queryPoint(*this, spring.second)) {
+				f1 = (f1 != 0.0f ? 1.0f : 0.0f);
+				f2 = 0.0f;
+			}
+
+			for (int j = 0; j < 3; j++) {
+				vbuff[3 * spring.first + j] -= p12[j] * f1 * diff;
+				vbuff[3 * spring.second + j] += p12[j] * f2 * diff;
+			}
+		}
+	}
+}
+void CgSpringDeformationNode::addSprings(std::vector<unsigned int> springs) {
+	items.insert(springs.begin(), springs.end());
+}
 
 bool CgNodeVisitor::visit(CgPointNode& node) { return true; }
 bool CgNodeVisitor::visit(CgSpringNode& node) { return true; }

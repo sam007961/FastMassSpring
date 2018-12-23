@@ -24,7 +24,7 @@ Mesh* MeshBuilder::buildUniformGrid(float w, int n) {
 	// generate mesh
 	const float d = w / (n - 1); // step distance
 	const float ud = 1.0 / (n - 1); // unit step distance
-	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-w, w, 0.0f); // origin
+	const OpenMesh::Vec3f o = OpenMesh::Vec3f(-w/2, w/2, 0.0f); // origin
 	const OpenMesh::Vec3f ux = OpenMesh::Vec3f(1.0f, 0.0f, 0.0f); // unit x direction
 	const OpenMesh::Vec3f uy = OpenMesh::Vec3f(0.0f, -1.0f, 0.0f); // unit y direction
 	std::vector<OpenMesh::VertexHandle> handle_table(n * n); // table storing vertex handles for easy grid connectivity establishment
