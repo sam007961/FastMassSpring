@@ -50,23 +50,23 @@ static MassSpringSolver* g_solver;
 
 // Constraint Graph
 static CgRootNode* g_cgRootNode;
-static const float g_tauc = 0.15f; // critical spring deformation
-static const unsigned int g_deformIter = 10; // number of iterations for spring deformation constraint
+static const float g_tauc = 0.2f; // critical spring deformation
+static const unsigned int g_deformIter = 15; // number of iterations for spring deformation constraint
 
 // System parameters
 namespace SystemParam {
 	static const int n = 61; // must be odd, n * n = n_vertices | 61
 	static const float w = 2.0f; // width | 10.0f
 	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
-	static const float r = w / (n - 1) + 0.0045; // spring rest legnth
-	static const float k = 1.2f; // spring stiffness | 2.0f;
+	static const float r = w / (n - 1) * 1.05; // spring rest legnth
+	static const float k = 1.0f; // spring stiffness | 2.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
 	static const float a = 0.993f; // damping, close to 1.0 | 0.993f
 	static const float g = 9.8f * m; // gravitational force | 9.8f
 }
 
 // Scene parameters
-static const float g_camera_distance = 4.0f;
+static const float g_camera_distance = 4.2f;
 
 // Scene matrices
 static glm::mat4 g_ModelViewMatrix;
@@ -203,7 +203,7 @@ static void initCloth() {
 
 	// sphere collision
 	CgSphereCollisionNode* sphereCollisionNode =
-		new CgSphereCollisionNode(g_system, g_clothMesh->vbuff(), 1.0f, { 0, 0, -1 });
+		new CgSphereCollisionNode(g_system, g_clothMesh->vbuff(), 0.6f, { 0, 0, -1 });
 	
 	// spring deformation constraint
 	CgSpringDeformationNode* structDeformationNode =
@@ -228,8 +228,8 @@ static void initCloth() {
 	g_cgRootNode->addChild(sphereCollisionNode);
 	g_cgRootNode->addChild(structDeformationNode);
 	structDeformationNode->addChild(shearDeformationNode);
-	shearDeformationNode->addChild(cornerFixer);
-	shearDeformationNode->addChild(mouseFixer);
+	//shearDeformationNode->addChild(cornerFixer);
+	//shearDeformationNode->addChild(mouseFixer);
 }
 
 static void initScene() {
