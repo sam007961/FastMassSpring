@@ -7,8 +7,8 @@ The dynamic inverse procedure described in [2] was implemented to constrain spri
 * **Eigen** for sparse matrix algebra.
 
 ### Demonstration
-![curtain hang](https://media.giphy.com/media/5EC1drLIyBuHxRC4I8/giphy.mp4)
-![curtain drop](https://media.giphy.com/media/1zRbfGDmHTcn9RoUjy/giphy.mp4)
+![curtain hang](https://media.giphy.com/media/5EC1drLIyBuHxRC4I8/giphy.gif)
+![curtain drop](https://media.giphy.com/media/1zRbfGDmHTcn9RoUjy/giphy.gif)
 
 ### References
 [1] Liu, T., Bargteil, A. W., Obrien, J. F., & Kavan, L. (2013). Fast simulation of mass-spring systems. *ACM Transactions on Graphics,32*(6), 1-7. doi:10.1145/2508363.2508406
