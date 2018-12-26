@@ -332,9 +332,11 @@ MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridBendIndex(unsign
 // C O N S T R A I N T //////////////////////////////////////////////////////////////////////////////
 CgNode::CgNode(mass_spring_system* system, float* vbuff) : system(system), vbuff(vbuff) {}
 
+// point node
 CgPointNode::CgPointNode(mass_spring_system* system, float* vbuff) : CgNode(system, vbuff) {}
 bool CgPointNode::accept(CgNodeVisitor& visitor) { return visitor.visit(*this); }
 
+// spring node
 CgSpringNode::CgSpringNode(mass_spring_system* system, float* vbuff) : CgNode(system, vbuff) {}
 bool CgSpringNode::accept(CgNodeVisitor& visitor) {
 	for (CgNode* child : children) {
@@ -346,8 +348,9 @@ void CgSpringNode::addChild(CgNode* node) { children.push_back(node); }
 void CgSpringNode::removeChild(CgNode* node) { 
 	children.erase(find(children.begin(), children.end(), node)); 
 }
+
+// root node
 CgRootNode::CgRootNode(mass_spring_system* system, float* vbuff) : CgSpringNode(system, vbuff) {}
-bool CgRootNode::query(unsigned int i) { return false; }
 void CgRootNode::satisfy() { return; }
 bool CgRootNode::accept(CgNodeVisitor& visitor) {
 	for (CgNode* child : children) {
@@ -355,28 +358,30 @@ bool CgRootNode::accept(CgNodeVisitor& visitor) {
 	}
 	return true;
 }
+
+// point fix node
 CgPointFixNode::CgPointFixNode(mass_spring_system* system, float* vbuff) 
 	: CgPointNode(system, vbuff) {}
-bool CgPointFixNode::query(unsigned int i) { return fix_map.find(3 * i) != fix_map.end(); }
+bool CgPointFixNode::query(unsigned int i) const { return fix_map.find(3 * i) != fix_map.end(); }
 void CgPointFixNode::satisfy() {
 	for (auto fix : fix_map)
 		for (int i = 0; i < 3; i++)
 			vbuff[fix.first + i] = fix.second[i];
 }
-void CgPointFixNode::fixPoint(int i) {
+void CgPointFixNode::fixPoint(unsigned int i) {
 	assert(i >= 0 && i < system->n_points);
 	fix_map[3 * i] = Vector3f(vbuff[3 * i], vbuff[3 * i + 1], vbuff[3 * i + 2]);
 }
-void CgPointFixNode::releasePoint(int i) { fix_map.erase(3 * i); }
+void CgPointFixNode::releasePoint(unsigned int i) { fix_map.erase(3 * i); }
 
+// spring deformation node
 CgSpringDeformationNode::CgSpringDeformationNode(mass_spring_system* system, float* vbuff,
 	float tauc, unsigned int n_iter) : CgSpringNode(system, vbuff), tauc(tauc), n_iter(n_iter) {}
-bool CgSpringDeformationNode::query(unsigned int i) { return items.find(i) != items.end(); }
 void CgSpringDeformationNode::satisfy() {
 	for (int k = 0; k < n_iter; k++) {
 		for (unsigned int i : items) {
 			Edge spring = system->spring_list[i];
-			CgPointQueryVisitor visitor;
+			CgQueryFixedPointVisitor visitor;
 
 			Vector3f p12(
 				vbuff[3 * spring.first + 0] - vbuff[3 * spring.second + 0],
@@ -416,10 +421,10 @@ void CgSpringDeformationNode::addSprings(std::vector<unsigned int> springs) {
 	items.insert(springs.begin(), springs.end());
 }
 
-
+// sphere collision node
 CgSphereCollisionNode::CgSphereCollisionNode(mass_spring_system* system, float* vbuff,
 	float radius, Vector3f center) : CgPointNode(system, vbuff), radius(radius), center(center) {}
-bool CgSphereCollisionNode::query(unsigned int i) { return false; }
+bool CgSphereCollisionNode::query(unsigned int i) const { return false; }
 void CgSphereCollisionNode::satisfy() {
 	for (int i = 0; i < system->n_points; i++) {
 		Vector3f p(
@@ -440,19 +445,22 @@ void CgSphereCollisionNode::satisfy() {
 	}
 }
 
+// node visitor
 bool CgNodeVisitor::visit(CgPointNode& node) { return true; }
 bool CgNodeVisitor::visit(CgSpringNode& node) { return true; }
 
-bool CgPointQueryVisitor::visit(CgPointNode& node) {
+// query fixed point visitor
+bool CgQueryFixedPointVisitor::visit(CgPointNode& node) {
 	queryResult = node.query(i);
 	return !queryResult;
 }
-bool CgPointQueryVisitor::queryPoint(CgNode& root, unsigned int i) {
+bool CgQueryFixedPointVisitor::queryPoint(CgNode& root, unsigned int i) {
 	this->i = i;
 	root.accept(*this);
 	return queryResult;
 }
 
+// satisfy visitor
 bool CgSatisfyVisitor::visit(CgPointNode& node) { node.satisfy(); return true; }
 bool CgSatisfyVisitor::visit(CgSpringNode& node) { node.satisfy(); return true; }
 void CgSatisfyVisitor::satisfy(CgNode& root) { root.accept(*this); }

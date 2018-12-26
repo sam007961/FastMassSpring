@@ -14,7 +14,6 @@
 #include "UserInteraction.h"
 
 // G L O B A L S ///////////////////////////////////////////////////////////////////
-typedef glm::vec3 Point;
 
 // Window
 static int g_windowWidth = 640, g_windowHeight = 640;
@@ -40,7 +39,7 @@ static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
-static const int g_iter = 7; // iterations per time step | 7
+static const int g_iter = 8; // iterations per time step | 7
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -48,22 +47,20 @@ static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time
 static mass_spring_system* g_system;
 static MassSpringSolver* g_solver;
 
-// Constraint Graph
-static CgRootNode* g_cgRootNode;
-static const float g_tauc = 0.2f; // critical spring deformation
-static const unsigned int g_deformIter = 15; // number of iterations for spring deformation constraint
-
 // System parameters
 namespace SystemParam {
 	static const int n = 61; // must be odd, n * n = n_vertices | 61
-	static const float w = 2.0f; // width | 10.0f
+	static const float w = 2.0f; // width | 2.0f
 	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
 	static const float r = w / (n - 1) * 1.05; // spring rest legnth
-	static const float k = 1.0f; // spring stiffness | 2.0f;
+	static const float k = 1.0f; // spring stiffness | 1.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
 	static const float a = 0.993f; // damping, close to 1.0 | 0.993f
 	static const float g = 9.8f * m; // gravitational force | 9.8f
 }
+
+// Constraint Graph
+static CgRootNode* g_cgRootNode;
 
 // Scene parameters
 static const float g_camera_distance = 4.2f;
@@ -80,6 +77,11 @@ static void initGLState();
 static void initShaders(); // Read, compile and link shaders
 static void initCloth(); // Generate cloth mesh
 static void initScene(); // Generate scene matrices
+
+// demos
+static void demo_hang();
+static void demo_drop();
+static void(*g_demo)() = demo_drop;
 
 // glut callbacks
 static void display();
@@ -100,6 +102,8 @@ static void cleanUp();
 
 // error checks
 void checkGlErrors();
+
+
 
 // M A I N //////////////////////////////////////////////////////////////////////////
 int main(int argc, char** argv) {
@@ -201,35 +205,7 @@ static void initCloth() {
 	// initialize mass spring solver
 	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
 
-	// sphere collision
-	CgSphereCollisionNode* sphereCollisionNode =
-		new CgSphereCollisionNode(g_system, g_clothMesh->vbuff(), 0.6f, { 0, 0, -1 });
-	
-	// spring deformation constraint
-	CgSpringDeformationNode* structDeformationNode =
-		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), g_tauc, g_deformIter);
-	structDeformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
-
-	CgSpringDeformationNode* shearDeformationNode =
-		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), g_tauc, g_deformIter);
-	shearDeformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
-
-	// fix top corners
-	CgPointFixNode* cornerFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
-	cornerFixer->fixPoint(0);
-	cornerFixer->fixPoint(SystemParam::n - 1);
-
-	// initialize user interaction
-	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
-	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
-
-	// build constraint graph
-	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
-	g_cgRootNode->addChild(sphereCollisionNode);
-	g_cgRootNode->addChild(structDeformationNode);
-	structDeformationNode->addChild(shearDeformationNode);
-	//shearDeformationNode->addChild(cornerFixer);
-	//shearDeformationNode->addChild(mouseFixer);
+	g_demo();
 }
 
 static void initScene() {
@@ -239,6 +215,79 @@ static void initScene() {
 		glm::vec3(0.0f, 0.0f, 1.0f)
 	) * glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, SystemParam::w / 4));
 	updateProjection();
+}
+
+static void demo_hang() {
+	// short hand
+	const int n = SystemParam::n;
+
+	// deformation constraint parameters
+	const float tauc = 0.4f; // critical spring deformation | 0.4f
+	const unsigned int deformIter = 15; // number of iterations | 15
+
+	// initialize constraints
+	// spring deformation constraint
+	CgSpringDeformationNode* deformationNode =
+		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), tauc, deformIter);
+	deformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
+	deformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
+
+	// fix top corners
+	CgPointFixNode* cornerFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
+	cornerFixer->fixPoint(0);
+	cornerFixer->fixPoint(n - 1);
+
+	// initialize user interaction
+	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
+	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
+
+	// build constraint graph
+	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
+
+	// first layer
+	g_cgRootNode->addChild(deformationNode);
+
+	// second layer
+	deformationNode->addChild(cornerFixer);
+	deformationNode->addChild(mouseFixer);
+}
+
+static void demo_drop() {
+	// short hand
+	const int n = SystemParam::n;
+
+	// sphere collision constraint parameters
+	const float radius = 0.64f; // sphere radius | 0.64f
+	const Eigen::Vector3f center(0, 0, -1);// sphere center | (0, 0, -1)
+
+	// deformation constraint parameters
+	const float tauc = 0.154f; // critical spring deformation | 0.154f
+	const unsigned int deformIter = 15; // number of iterations | 15
+
+	// initialize constraints
+	// sphere collision constraint
+	CgSphereCollisionNode* sphereCollisionNode =
+		new CgSphereCollisionNode(g_system, g_clothMesh->vbuff(), radius, center);
+
+	// spring deformation constraint
+	CgSpringDeformationNode* deformationNode =
+		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), tauc, deformIter);
+	deformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
+	deformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
+
+	// initialize user interaction
+	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
+	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
+
+	// build constraint graph
+	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
+
+	// first layer
+	g_cgRootNode->addChild(deformationNode);
+	g_cgRootNode->addChild(sphereCollisionNode);
+
+	// second layer
+	deformationNode->addChild(mouseFixer);
 }
 
 // G L U T  C A L L B A C K S //////////////////////////////////////////////////////

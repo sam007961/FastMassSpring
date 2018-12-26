@@ -117,7 +117,6 @@ protected:
 public:
 	CgNode(mass_spring_system* system, float* vbuff);
 
-	virtual bool query(unsigned int i) = 0; // check if item with index i is constrained
 	virtual void satisfy() = 0; // satisfy constraint
 	virtual bool accept(CgNodeVisitor& visitor) = 0; // accept visitor
 
@@ -127,7 +126,7 @@ public:
 class CgPointNode : public CgNode {
 public:
 	CgPointNode(mass_spring_system* system, float* vbuff);
-
+	virtual bool query(unsigned int i) const = 0; // check if point with index i is constrained
 	virtual bool accept(CgNodeVisitor& visitor);
 
 };
@@ -151,22 +150,21 @@ class CgRootNode : public CgSpringNode {
 public:
 	CgRootNode(mass_spring_system* system, float* vbuff);
 
-	virtual bool query(unsigned int i);
 	virtual void satisfy();
 	virtual bool accept(CgNodeVisitor& visitor);
 };
 
 class CgPointFixNode : public CgPointNode {
-private:
+protected:
 	typedef Eigen::Vector3f Vector3f;
 	std::unordered_map<unsigned int, Vector3f> fix_map;
 public:
 	CgPointFixNode(mass_spring_system* system, float* vbuff);
-	virtual bool query(unsigned int i);
 	virtual void satisfy();
 
-	void fixPoint(int i); // add point at index i to list
-	void releasePoint(int i); // remove point at index i from list
+	virtual bool query(unsigned int i) const;
+	virtual void fixPoint(unsigned int i); // add point at index i to list
+	virtual void releasePoint(unsigned int i); // remove point at index i from list
 };
 
 class CgSpringDeformationNode : public CgSpringNode {
@@ -179,8 +177,6 @@ private:
 
 public:
 	CgSpringDeformationNode(mass_spring_system* system, float* vbuff, float tauc, unsigned int n_iter);
-	
-	virtual bool query(unsigned int i);
 	virtual void satisfy();
 
 	void addSprings(std::vector<unsigned int> springs);
@@ -192,19 +188,21 @@ private:
 
 	float radius;
 	Vector3f center;
+
 public:
 	CgSphereCollisionNode(mass_spring_system* system, float* vbuff, float radius, Vector3f center);
-	virtual bool query(unsigned int i);
+	virtual bool query(unsigned int i) const;
 	virtual void satisfy();
 };
 
 class CgNodeVisitor {
 public:
+	
 	virtual bool visit(CgPointNode& node);
 	virtual bool visit(CgSpringNode& node);
 };
 
-class CgPointQueryVisitor : public CgNodeVisitor {
+class CgQueryFixedPointVisitor : public CgNodeVisitor {
 private:
 	unsigned int i;
 	bool queryResult;
