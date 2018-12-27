@@ -76,7 +76,6 @@ public:
 };
 
 // Mass-Spring System Builder Class
-// TODO: refactor builder class to be non-static, i.e implement proper builder pattern
 class MassSpringBuilder {
 private:
 	typedef Eigen::Vector3f Vector3f;
@@ -172,6 +171,7 @@ public:
 	virtual void releasePoint(unsigned int i); // remove point at index i from list
 };
 
+// spring node
 class CgSpringDeformationNode : public CgSpringNode {
 private:
 	typedef std::pair<unsigned int, unsigned int> Edge;
@@ -187,6 +187,7 @@ public:
 	void addSprings(std::vector<unsigned int> springs);
 };
 
+// sphere collision node
 class CgSphereCollisionNode : public CgPointNode {
 private:
 	typedef Eigen::Vector3f Vector3f;
@@ -200,6 +201,7 @@ public:
 	virtual void satisfy();
 };
 
+// node visitor
 class CgNodeVisitor {
 public:
 	
@@ -207,6 +209,7 @@ public:
 	virtual bool visit(CgSpringNode& node);
 };
 
+// fixed point query visitor
 class CgQueryFixedPointVisitor : public CgNodeVisitor {
 private:
 	unsigned int i;
@@ -217,6 +220,7 @@ public:
 	bool queryPoint(CgNode& root, unsigned int i);
 };
 
+// satisfy visitor
 class CgSatisfyVisitor : public CgNodeVisitor {
 public:
 	virtual bool visit(CgPointNode& node);

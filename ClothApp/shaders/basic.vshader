@@ -1,7 +1,7 @@
 #version 430
 
 uniform mat4 uModelViewMatrix;
-// uniform mat4 NormalMatrix;
+// uniform mat4 uNormalMatrix;
 uniform mat4 uProjectionMatrix;
 
 layout(location=0) in vec3 aPosition;

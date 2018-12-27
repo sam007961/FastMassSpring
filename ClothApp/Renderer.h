@@ -6,13 +6,13 @@
 class Renderer {
 protected:
 	GLProgram* program;
-	ProgramInput input;
+	ProgramInput* input;
 
 public:
 	Renderer();
 
 	void setProgram(GLProgram* program);
-	void setProgramInput(ProgramInput input);
+	void setProgramInput(ProgramInput* input);
 	void setModelview(const glm::mat4& mv);
 	void setProjection(const glm::mat4& p);
 

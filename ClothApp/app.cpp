@@ -31,6 +31,11 @@ static const float PI = glm::pi<float>();
 static PhongShader* g_phongShader; // linked phong shader
 static PickShader* g_pickShader; // linked pick shader
 
+// Shader parameters
+static const glm::vec3 g_albedo(0.0f, 0.3f, 0.7f);
+static const glm::vec3 g_ambient(0.02f, 0.02f, 0.02f);
+static const glm::vec3 g_light(1.0f, 1.0f, -1.0f);
+
 // Mesh
 static Mesh* g_clothMesh; // halfedge data structure
 
@@ -39,7 +44,7 @@ static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
-static const int g_iter = 8; // iterations per time step | 7
+static const int g_iter = 10; // iterations per time step | 10
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -79,8 +84,8 @@ static void initCloth(); // Generate cloth mesh
 static void initScene(); // Generate scene matrices
 
 // demos
-static void demo_hang();
-static void demo_drop();
+static void demo_hang(); // curtain hanging from top corners
+static void demo_drop(); // curtain dropping on sphere
 static void(*g_demo)() = demo_drop;
 
 // glut callbacks
@@ -380,16 +385,18 @@ static void drawCloth(bool picking) {
 		renderer.setModelview(g_ModelViewMatrix);
 		renderer.setProjection(g_ProjectionMatrix);
 		g_pickShader->setTessFact(SystemParam::n);
-		renderer.setProgramInput(*g_render_target);
+		renderer.setProgramInput(g_render_target);
 		renderer.draw(g_clothMesh->ibuffLen());
 	}
 	else {
 		Renderer renderer;
 		renderer.setProgram(g_phongShader);
 		renderer.setModelview(g_ModelViewMatrix);
-		
 		renderer.setProjection(g_ProjectionMatrix);
-		renderer.setProgramInput(*g_render_target);
+		g_phongShader->setAlbedo(g_albedo);
+		g_phongShader->setAmbient(g_ambient);
+		g_phongShader->setLight(g_light);
+		renderer.setProgramInput(g_render_target);
 		renderer.draw(g_clothMesh->ibuffLen());
 		checkGlErrors();
 	}

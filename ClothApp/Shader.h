@@ -28,12 +28,12 @@ class GLProgram : public NonCopyable {
 protected:
 	GLuint handle;
 	GLuint uModelViewMatrix, uProjectionMatrix;
-	void getCameraUniforms();
 	void setUniformMat4(GLuint unif, glm::mat4 m);
 
 public:
 	GLProgram();
 	virtual void link(const GLShader& vshader, const GLShader& fshader);
+	virtual void postLink();
 	operator GLuint() const; // cast to GLuint
 	void setModelView(glm::mat4 m);
 	void setProjection(glm::mat4 m);
@@ -61,16 +61,25 @@ public:
 };
 
 class PhongShader : public GLProgram {
+private:
+	// Albedo | Ambient Light | Light Direction
+	GLuint uAlbedo, uAmbient, uLight;
+
 public:
 	PhongShader();
+	virtual void postLink();
+	void setAlbedo(const glm::vec3& albedo);
+	void setAmbient(const glm::vec3& ambient);
+	void setLight(const glm::vec3& light);
 };
 
 
 class PickShader : public GLProgram {
+private:
 	GLuint uTessFact;
 
 public:
 	PickShader();
-	virtual void link(const GLShader& vshader, const GLShader& fshader);
+	virtual void postLink();
 	void setTessFact(unsigned int n);
 };

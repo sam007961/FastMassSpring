@@ -55,16 +55,17 @@ void GLProgram::link(const GLShader& vshader, const GLShader& fshader) {
 	glGetProgramiv(handle, GL_LINK_STATUS, &linked);
 	if (!linked)
 		throw std::runtime_error("Failed to link shaders.");
-	getCameraUniforms();
 
-}
-
-void GLProgram::getCameraUniforms() {
-	glUseProgram(handle);
+	// get camera uniforms
 	uModelViewMatrix = glGetUniformLocation(handle, "uModelViewMatrix");
 	uProjectionMatrix = glGetUniformLocation(handle, "uProjectionMatrix");
-	glUseProgram(0);
+
+	// post link
+	postLink();
+
 }
+
+void GLProgram::postLink() {}
 
 void GLProgram::setUniformMat4(GLuint unif, glm::mat4 m) {
 	glUseProgram(handle);
@@ -86,7 +87,7 @@ GLProgram::operator GLuint() const { return handle; }
 
 GLProgram::~GLProgram() { glDeleteProgram(handle); }
 
-// PROGRAMINPUT ///////////////////////////////////////////////////////////////////////////////
+// PROGRAM INPUT //////////////////////////////////////////////////////////////////////////////
 
 ProgramInput::ProgramInput() {
 	// generate buffers
@@ -142,23 +143,47 @@ ProgramInput::operator GLuint() const {
 
 
 ProgramInput::~ProgramInput() {
-	// TODO: delete vbos and vao
+	glDeleteBuffers(4, vbo);
+	glDeleteVertexArrays(1, &handle);
 }
 
 // SHADER PROGRAMS ////////////////////////////////////////////////////////////////////////////
 PhongShader::PhongShader() : GLProgram() {}
+void PhongShader::postLink() {
+	// get uniforms
+	uAlbedo = glGetUniformLocation(handle, "uAlbedo");
+	uAmbient = glGetUniformLocation(handle, "uAmbient");
+	uLight = glGetUniformLocation(handle, "uLight");
+}
+void PhongShader::setAlbedo(const glm::vec3& albedo) {
+	assert(uAlbedo >= 0);
+	glUseProgram(*this);
+	glUniform3f(uAlbedo, albedo[0], albedo[1], albedo[2]);
+	glUseProgram(0);
+}
+void PhongShader::setAmbient(const glm::vec3& ambient) {
+	assert(uAmbient >= 0);
+	glUseProgram(*this);
+	glUniform3f(uAmbient, ambient[0], ambient[1], ambient[2]);
+	glUseProgram(0);
+}
+void PhongShader::setLight(const glm::vec3& light) {
+	assert(uLight >= 0);
+	glUseProgram(*this);
+	glUniform3f(uLight, light[0], light[1], light[2]);
+	glUseProgram(0);
+}
+
 
 PickShader::PickShader() : GLProgram() {}
 
-void PickShader::link(const GLShader& vshader, const GLShader& fshader) {
-	GLProgram::link(vshader, fshader);
-
+void PickShader::postLink() {
 	// get uniforms
 	uTessFact = glGetUniformLocation(handle, "uTessFact");
 }
 
 void PickShader::setTessFact(unsigned int n) {
-	assert(uTessFact > 0);
+	assert(uTessFact >= 0);
 	glUseProgram(*this);
 	glUniform1i(uTessFact, n);
 	glUseProgram(0);

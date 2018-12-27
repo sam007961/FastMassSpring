@@ -32,7 +32,6 @@ public:
 	void useIBuff(std::vector<unsigned int>& _ibuff);
 };
 
-// TODO: refactor builder class to be non-static, i.e implement proper builder pattern
 class MeshBuilder {
 private:
 	Mesh* result;

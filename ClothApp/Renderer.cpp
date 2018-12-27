@@ -9,7 +9,7 @@ void Renderer::setProgram(GLProgram* program) {
 	this->program = program;
 }
 
-void Renderer::setProgramInput(ProgramInput input) {
+void Renderer::setProgramInput(ProgramInput* input) {
 	this->input = input;
 }
 
@@ -35,7 +35,7 @@ void Renderer::draw(unsigned int n_elements) {
 	assert(program != nullptr);
 	assert((*program) > 0);
 	glUseProgram(*program);
-	glBindVertexArray(input);
+	glBindVertexArray(*input);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
