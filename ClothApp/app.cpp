@@ -52,7 +52,7 @@ namespace SystemParam {
 	static const int n = 61; // must be odd, n * n = n_vertices | 61
 	static const float w = 2.0f; // width | 2.0f
 	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
-	static const float r = w / (n - 1) * 1.05; // spring rest legnth
+	static const float r = w / (n - 1) * 1.05f; // spring rest legnth
 	static const float k = 1.0f; // spring stiffness | 1.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
 	static const float a = 0.993f; // damping, close to 1.0 | 0.993f
@@ -177,10 +177,9 @@ static void initCloth() {
 	const float w = SystemParam::w;
 
 	// generate mesh
-	g_clothMesh = MeshBuilder::buildUniformGrid(w, n);
-
-	// build index buffer
-	g_clothMesh->useIBuff(MeshBuilder::buildUniformGridTrianglesIBuff(n));
+	MeshBuilder meshBuilder;
+	meshBuilder.uniformGrid(w, n);
+	g_clothMesh = meshBuilder.getResult();
 
 	// fill program input
 	g_render_target = new ProgramInput;
@@ -191,20 +190,7 @@ static void initCloth() {
 
 	checkGlErrors();
 
-	// initialize mass spring system
-	g_system = MassSpringBuilder::buildUniformGrid(
-		SystemParam::n,
-		SystemParam::h,
-		SystemParam::r,
-		SystemParam::k,
-		SystemParam::m,
-		SystemParam::a,
-		SystemParam::g
-	);
-
-	// initialize mass spring solver
-	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
-
+	// build demo system
 	g_demo();
 }
 
@@ -221,6 +207,22 @@ static void demo_hang() {
 	// short hand
 	const int n = SystemParam::n;
 
+	// initialize mass spring system
+	MassSpringBuilder massSpringBuilder;
+	massSpringBuilder.uniformGrid(
+		SystemParam::n,
+		SystemParam::h,
+		SystemParam::r,
+		SystemParam::k,
+		SystemParam::m,
+		SystemParam::a,
+		SystemParam::g
+	);
+	g_system = massSpringBuilder.getResult();
+
+	// initialize mass spring solver
+	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
+
 	// deformation constraint parameters
 	const float tauc = 0.4f; // critical spring deformation | 0.4f
 	const unsigned int deformIter = 15; // number of iterations | 15
@@ -229,8 +231,8 @@ static void demo_hang() {
 	// spring deformation constraint
 	CgSpringDeformationNode* deformationNode =
 		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), tauc, deformIter);
-	deformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
-	deformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
+	deformationNode->addSprings(massSpringBuilder.getShearIndex());
+	deformationNode->addSprings(massSpringBuilder.getStructIndex());
 
 	// fix top corners
 	CgPointFixNode* cornerFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
@@ -256,6 +258,22 @@ static void demo_drop() {
 	// short hand
 	const int n = SystemParam::n;
 
+	// initialize mass spring system
+	MassSpringBuilder massSpringBuilder;
+	massSpringBuilder.uniformGrid(
+		SystemParam::n,
+		SystemParam::h,
+		SystemParam::r,
+		SystemParam::k,
+		SystemParam::m,
+		SystemParam::a,
+		SystemParam::g
+	);
+	g_system = massSpringBuilder.getResult();
+
+	// initialize mass spring solver
+	g_solver = new MassSpringSolver(g_system, g_clothMesh->vbuff());
+
 	// sphere collision constraint parameters
 	const float radius = 0.64f; // sphere radius | 0.64f
 	const Eigen::Vector3f center(0, 0, -1);// sphere center | (0, 0, -1)
@@ -272,8 +290,8 @@ static void demo_drop() {
 	// spring deformation constraint
 	CgSpringDeformationNode* deformationNode =
 		new CgSpringDeformationNode(g_system, g_clothMesh->vbuff(), tauc, deformIter);
-	deformationNode->addSprings(MassSpringBuilder::buildUniformGridShearIndex(n));
-	deformationNode->addSprings(MassSpringBuilder::buildUniformGridStructIndex(n));
+	deformationNode->addSprings(massSpringBuilder.getShearIndex());
+	deformationNode->addSprings(massSpringBuilder.getStructIndex());
 
 	// initialize user interaction
 	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());

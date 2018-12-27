@@ -126,7 +126,7 @@ void MassSpringSolver::timedSolve(unsigned int ms) {
 
 
 // B U I L D E R ////////////////////////////////////////////////////////////////////////////////////
-mass_spring_system* MassSpringBuilder::buildUniformGrid(
+void MassSpringBuilder::uniformGrid(
 	unsigned int n,
 	float time_step,
 	float rest_length,
@@ -150,6 +150,10 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 
 	// build spring list and spring parameters
 	EdgeList spring_list(n_springs);
+	structI.reserve(2 * (n - 1) * n);
+	shearI.reserve(2 * (n - 1) * (n - 1));
+	bendI.reserve(n * (n - 1));
+
 	VectorXf rest_lengths(n_springs);
 	VectorXf stiffnesses(n_springs);
 	unsigned int k = 0; // spring counter
@@ -164,13 +168,15 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 				// structural spring
 				spring_list[k] = Edge(n * i + j, n * i + j + 1);
 				rest_lengths[k] = rest_length;
-				stiffnesses[k++] = stiffness;
+				stiffnesses[k] = stiffness;
+				structI.push_back(k++);
 
 				// bending spring
 				if (j % 2 == 0) {
 					spring_list[k] = Edge(n * i + j, n * i + j + 2);
 					rest_lengths[k] = 2 * rest_length;
-					stiffnesses[k++] = stiffness;
+					stiffnesses[k] = stiffness;
+					bendI.push_back(k++);
 				}
 				continue;
 			}
@@ -180,13 +186,15 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 				// structural spring
 				spring_list[k] = Edge(n * i + j, n * (i + 1) + j);
 				rest_lengths[k] = rest_length;
-				stiffnesses[k++] = stiffness;
+				stiffnesses[k] = stiffness;
+				structI.push_back(k++);
 
 				// bending spring
 				if (i % 2 == 0){
 					spring_list[k] = Edge(n * i + j, n * (i + 2) + j);
 					rest_lengths[k] = 2 * rest_length;
-					stiffnesses[k++] = stiffness;
+					stiffnesses[k] = stiffness;
+					bendI.push_back(k++);
 				}
 				continue;
 			}
@@ -194,31 +202,37 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 			// structural springs
 			spring_list[k] = Edge(n * i + j, n * i + j + 1);
 			rest_lengths[k] = rest_length;
-			stiffnesses[k++] = stiffness;
+			stiffnesses[k] = stiffness;
+			structI.push_back(k++);
 
 			spring_list[k] = Edge(n * i + j, n * (i + 1) + j);
 			rest_lengths[k] = rest_length;
-			stiffnesses[k++] = stiffness;
+			stiffnesses[k] = stiffness;
+			structI.push_back(k++);
 
 			// shearing springs
 			spring_list[k] = Edge(n * i + j, n * (i + 1) + j + 1);
 			rest_lengths[k] = root2 * rest_length;
-			stiffnesses[k++] = stiffness;
+			stiffnesses[k] = stiffness;
+			shearI.push_back(k++);
 
 			spring_list[k] = Edge(n * (i + 1) + j, n * i + j + 1);
 			rest_lengths[k] = root2 * rest_length;
-			stiffnesses[k++] = stiffness;
+			stiffnesses[k] = stiffness;
+			shearI.push_back(k++);
 
 			// bending springs
 			if (j % 2 == 0) {
 				spring_list[k] = Edge(n * i + j, n * i + j + 2);
 				rest_lengths[k] = 2 * rest_length;
-				stiffnesses[k++] = stiffness;
+				stiffnesses[k] = stiffness;
+				bendI.push_back(k++);
 			}
 			if (i % 2 == 0) {
 				spring_list[k] = Edge(n * i + j, n * (i + 2) + j);
 				rest_lengths[k] = 2 * rest_length;
-				stiffnesses[k++] = stiffness;
+				stiffnesses[k] = stiffness;
+				bendI.push_back(k++);
 			}
 		}
 	}
@@ -226,108 +240,13 @@ mass_spring_system* MassSpringBuilder::buildUniformGrid(
 	// compute external forces
 	VectorXf fext = Vector3f(0, 0, -gravity).replicate(n_points, 1);
 
-	return new mass_spring_system(n_points, n_springs, time_step, spring_list, rest_lengths,
+	result = new mass_spring_system(n_points, n_springs, time_step, spring_list, rest_lengths,
 		stiffnesses, masses, fext, damping_factor);
 }
-
-MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridStructIndex(unsigned int n) {
-	std::vector<unsigned int> indices;
-	unsigned int k = 0; // spring counter
-	for(unsigned int i = 0; i < n; i++) {
-		for(unsigned int j = 0; j < n; j++) {
-			// bottom right corner
-			if(i == n - 1 && j == n - 1) {
-				continue;
-			}
-
-			if (i == n - 1) {
-				// structural spring
-				indices.push_back(k++);
-				// bending spring
-				if (j % 2 == 0) k++;
-				continue;
-			}
-
-			// right edge
-			if (j == n - 1) {
-				// structural spring
-				indices.push_back(k++);
-				// bending spring
-				if (i % 2 == 0) k++;
-				continue;
-			}
-
-			// structural springs
-			indices.push_back(k++);
-			indices.push_back(k++);
-
-			// shearing springs
-			k++;
-			k++;
-
-			// bending springs
-			if (j % 2 == 0) {
-				k++;
-			}
-			if (i % 2 == 0) {
-				k++;
-			}
-		}
-	}
-	return indices;
-}
-
-MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridShearIndex(unsigned int n) {
-	std::vector<unsigned int> indices;
-	unsigned int k = 0; // spring counter
-	for (unsigned int i = 0; i < n; i++) {
-		for (unsigned int j = 0; j < n; j++) {
-			// bottom right corner
-			if (i == n - 1 && j == n - 1) {
-				continue;
-			}
-
-			if (i == n - 1) {
-				// structural spring
-				k++;
-				// bending spring
-				if (j % 2 == 0) k++;
-				continue;
-			}
-
-			// right edge
-			if (j == n - 1) {
-				// structural spring
-				k++;
-				// bending spring
-				if (i % 2 == 0) k++;
-				continue;
-			}
-
-			// structural springs
-			k++;
-			k++;
-
-			// shearing springs
-			indices.push_back(k++);
-			indices.push_back(k++);
-
-			// bending springs
-			if (j % 2 == 0) {
-				k++;
-			}
-			if (i % 2 == 0) {
-				k++;
-			}
-		}
-	}
-	return indices;
-}
-
-MassSpringBuilder::IndexList MassSpringBuilder::buildUniformGridBendIndex(unsigned int n) {
-	// TODO
-	return IndexList();
-}
+MassSpringBuilder::IndexList MassSpringBuilder::getStructIndex() { return structI; }
+MassSpringBuilder::IndexList MassSpringBuilder::getShearIndex() { return shearI; }
+MassSpringBuilder::IndexList MassSpringBuilder::getBendIndex() { return bendI; }
+mass_spring_system* MassSpringBuilder::getResult() { return result; }
 
 // C O N S T R A I N T //////////////////////////////////////////////////////////////////////////////
 CgNode::CgNode(mass_spring_system* system, float* vbuff) : system(system), vbuff(vbuff) {}

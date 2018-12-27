@@ -87,8 +87,11 @@ private:
 	typedef std::vector<Triplet> TripletList;
 	typedef std::vector<unsigned int> IndexList;
 
+	IndexList structI, shearI, bendI;
+	mass_spring_system* result;
+
 public:
-	static mass_spring_system* buildUniformGrid(
+	void uniformGrid(
 		unsigned int n,          // grid width
 		float time_step,         // time step
 		float rest_length,       // spring rest length (non-diagonal)
@@ -100,9 +103,11 @@ public:
 
 
 	// indices
-	static IndexList buildUniformGridStructIndex(unsigned int n); // structural springs
-	static IndexList buildUniformGridShearIndex(unsigned int n); // shearing springs
-	static IndexList buildUniformGridBendIndex(unsigned int n); // bending springs
+	IndexList getStructIndex(); // structural springs
+	IndexList getShearIndex(); // shearing springs
+	IndexList getBendIndex(); // bending springs
+
+	mass_spring_system* getResult();
 };
 
 // Constraint Graph

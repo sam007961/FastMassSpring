@@ -13,4 +13,4 @@ The dynamic inverse procedure described in [2] was implemented to constrain spri
 ### References
 [1] Liu, T., Bargteil, A. W., Obrien, J. F., & Kavan, L. (2013). Fast simulation of mass-spring systems. *ACM Transactions on Graphics,32*(6), 1-7. doi:10.1145/2508363.2508406
 
-[2] PROVOT, X. (1995). Deformation constraints in a mass-spring modelto describe rigid cloth behavior. *InGraphics Interface* 1995,147–154.
+[2] Provot, X. (1995). Deformation constraints in a mass-spring modelto describe rigid cloth behavior. *InGraphics Interface* 1995,147–154.

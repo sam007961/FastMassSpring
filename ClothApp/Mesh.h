@@ -34,7 +34,10 @@ public:
 
 // TODO: refactor builder class to be non-static, i.e implement proper builder pattern
 class MeshBuilder {
+private:
+	Mesh* result;
+
 public:
-	static Mesh* buildUniformGrid(float w, int n);
-	static std::vector<unsigned int> buildUniformGridTrianglesIBuff(int n);
+	void uniformGrid(float w, int n);
+	Mesh* getResult();
 };
