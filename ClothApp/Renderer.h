@@ -7,6 +7,7 @@ class Renderer {
 protected:
 	GLProgram* program;
 	ProgramInput* input;
+	unsigned int n_elements;
 
 public:
 	Renderer();
@@ -15,6 +16,7 @@ public:
 	void setProgramInput(ProgramInput* input);
 	void setModelview(const glm::mat4& mv);
 	void setProjection(const glm::mat4& p);
+	void setElementCount(unsigned int n_elements);
 
-	void draw(unsigned int n_elements);
+	void draw();
 };

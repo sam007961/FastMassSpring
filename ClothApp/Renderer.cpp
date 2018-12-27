@@ -29,9 +29,9 @@ void Renderer::setProjection(const glm::mat4& p) {
 	glUseProgram(0);
 }
 
+void Renderer::setElementCount(unsigned int n_elements) { this->n_elements = n_elements; }
 
-
-void Renderer::draw(unsigned int n_elements) {
+void Renderer::draw() {
 	assert(program != nullptr);
 	assert((*program) > 0);
 	glUseProgram(*program);
@@ -46,3 +46,4 @@ void Renderer::draw(unsigned int n_elements) {
 	glBindVertexArray(0);
 	glUseProgram(0);
 }
+

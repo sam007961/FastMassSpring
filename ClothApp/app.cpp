@@ -22,7 +22,9 @@ static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
 static int g_mouseClickX;
 static int g_mouseClickY;
 
+// User Interaction
 static UserInteraction* UI;
+static Renderer* g_pickRenderer;
 
 // Constants
 static const float PI = glm::pi<float>();
@@ -95,7 +97,7 @@ static void mouse(int, int, int, int);
 static void motion(int, int);
 
 // draw cloth function
-static void drawCloth(bool picking);
+static void drawCloth();
 static void animateCloth(int value);
 
 // scene update
@@ -173,6 +175,7 @@ static void initShaders() {
 	g_pickShader = new PickShader;
 	g_phongShader->link(basic_vert, phong_frag);
 	g_pickShader->link(basic_vert, pick_frag);
+
 	checkGlErrors();
 }
 
@@ -193,6 +196,7 @@ static void initCloth() {
 	g_render_target->setTextureData(g_clothMesh->tbuff(), g_clothMesh->tbuffLen());
 	g_render_target->setIndexData(g_clothMesh->ibuff(), g_clothMesh->ibuffLen());
 
+	// check errors
 	checkGlErrors();
 
 	// build demo system
@@ -245,8 +249,13 @@ static void demo_hang() {
 	cornerFixer->fixPoint(n - 1);
 
 	// initialize user interaction
+	g_pickRenderer = new Renderer();
+	g_pickRenderer->setProgram(g_pickShader);
+	g_pickRenderer->setProgramInput(g_render_target);
+	g_pickRenderer->setElementCount(g_clothMesh->ibuffLen());
+	g_pickShader->setTessFact(SystemParam::n);
 	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
-	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
+	UI = new GridMeshUI(g_pickRenderer, mouseFixer, g_clothMesh->vbuff(), n);
 
 	// build constraint graph
 	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
@@ -299,8 +308,13 @@ static void demo_drop() {
 	deformationNode->addSprings(massSpringBuilder.getStructIndex());
 
 	// initialize user interaction
+	g_pickRenderer = new Renderer();
+	g_pickRenderer->setProgram(g_pickShader);
+	g_pickRenderer->setProgramInput(g_render_target);
+	g_pickRenderer->setElementCount(g_clothMesh->ibuffLen());
+	g_pickShader->setTessFact(SystemParam::n);
 	CgPointFixNode* mouseFixer = new CgPointFixNode(g_system, g_clothMesh->vbuff());
-	UI = new UserInteraction(mouseFixer, g_clothMesh->vbuff(), n);
+	UI = new GridMeshUI(g_pickRenderer, mouseFixer, g_clothMesh->vbuff(), n);
 
 	// build constraint graph
 	g_cgRootNode = new CgRootNode(g_system, g_clothMesh->vbuff());
@@ -316,7 +330,7 @@ static void demo_drop() {
 // G L U T  C A L L B A C K S //////////////////////////////////////////////////////
 static void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	drawCloth(false);
+	drawCloth();
 	glutSwapBuffers();
 
 	checkGlErrors();
@@ -347,16 +361,9 @@ static void mouse(const int button, const int state, const int x, const int y) {
 	// TODO: move to UserInteraction class: add renderer member variable
 	// pick point
 	if (g_mouseLClickButton) {
-		glClearColor(0, 0, 0, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glDisable(GL_FRAMEBUFFER_SRGB);
-		drawCloth(true);
-		glFlush();
+		UI->setModelview(g_ModelViewMatrix);
+		UI->setProjection(g_ProjectionMatrix);
 		UI->grabPoint(g_mouseClickX, g_mouseClickY);
-		checkGlErrors();
-
-		glClearColor(0.25f, 0.25f, 0.25f, 0);
-		glEnable(GL_FRAMEBUFFER_SRGB);
 	}
 	else UI->releasePoint();
 }
@@ -378,28 +385,17 @@ static void motion(const int x, const int y) {
 }
 
 // C L O T H ///////////////////////////////////////////////////////////////////////
-static void drawCloth(bool picking) {
-	if (picking) {
-		Renderer renderer;
-		renderer.setProgram(g_pickShader);
-		renderer.setModelview(g_ModelViewMatrix);
-		renderer.setProjection(g_ProjectionMatrix);
-		g_pickShader->setTessFact(SystemParam::n);
-		renderer.setProgramInput(g_render_target);
-		renderer.draw(g_clothMesh->ibuffLen());
-	}
-	else {
-		Renderer renderer;
-		renderer.setProgram(g_phongShader);
-		renderer.setModelview(g_ModelViewMatrix);
-		renderer.setProjection(g_ProjectionMatrix);
-		g_phongShader->setAlbedo(g_albedo);
-		g_phongShader->setAmbient(g_ambient);
-		g_phongShader->setLight(g_light);
-		renderer.setProgramInput(g_render_target);
-		renderer.draw(g_clothMesh->ibuffLen());
-		checkGlErrors();
-	}
+static void drawCloth() {
+	Renderer renderer;
+	renderer.setProgram(g_phongShader);
+	renderer.setModelview(g_ModelViewMatrix);
+	renderer.setProjection(g_ProjectionMatrix);
+	g_phongShader->setAlbedo(g_albedo);
+	g_phongShader->setAmbient(g_ambient);
+	g_phongShader->setLight(g_light);
+	renderer.setProgramInput(g_render_target);
+	renderer.setElementCount(g_clothMesh->ibuffLen());
+	renderer.draw();
 }
 
 static void animateCloth(int value) {
@@ -443,10 +439,22 @@ static void updateRenderTarget() {
 
 // C L E A N  U P //////////////////////////////////////////////////////////////////
 static void cleanUp() {
+	// delete mesh
 	delete g_clothMesh;
+
+	// delete UI
+	delete g_pickRenderer;
+	delete UI;
+
+	// delete render target
+	delete g_render_target;
+
 	// delete mass-spring system
 	delete g_system;
 	delete g_solver;
+
+	// delete constraint graph
+	// TODO
 }
 
 // E R R O R S /////////////////////////////////////////////////////////////////////
