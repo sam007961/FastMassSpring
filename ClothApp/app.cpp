@@ -35,7 +35,7 @@ static PickShader* g_pickShader; // linked pick shader
 
 // Shader parameters
 static const glm::vec3 g_albedo(0.0f, 0.3f, 0.7f);
-static const glm::vec3 g_ambient(0.02f, 0.02f, 0.02f);
+static const glm::vec3 g_ambient(0.01f, 0.01f, 0.01f);
 static const glm::vec3 g_light(1.0f, 1.0f, -1.0f);
 
 // Mesh
@@ -46,7 +46,7 @@ static ProgramInput* g_render_target; // vertex, normal, texutre, index
 
 // Animation
 static const int g_fps = 60; // frames per second  | 60
-static const int g_iter = 10; // iterations per time step | 10
+static const int g_iter = 5; // iterations per time step | 10
 static const int g_frame_time = 15; // approximate time for frame calculations | 15
 static const int g_animation_timer = (int) ((1.0f / g_fps) * 1000 - g_frame_time);
 
@@ -58,7 +58,7 @@ static MassSpringSolver* g_solver;
 namespace SystemParam {
 	static const int n = 61; // must be odd, n * n = n_vertices | 61
 	static const float w = 2.0f; // width | 2.0f
-	static const float h = 0.01666f; // time step, smaller for better results | 0.01666f
+	static const float h = 0.008f; // time step, smaller for better results | 0.008f = 0.016f/2
 	static const float r = w / (n - 1) * 1.05f; // spring rest legnth
 	static const float k = 1.0f; // spring stiffness | 1.0f;
 	static const float m = 0.25f / (n * n); // point mass | 0.25f
@@ -293,7 +293,7 @@ static void demo_drop() {
 	const Eigen::Vector3f center(0, 0, -1);// sphere center | (0, 0, -1)
 
 	// deformation constraint parameters
-	const float tauc = 0.154f; // critical spring deformation | 0.154f
+	const float tauc = 0.12f; // critical spring deformation | 0.12f
 	const unsigned int deformIter = 15; // number of iterations | 15
 
 	// initialize constraints
@@ -400,7 +400,8 @@ static void drawCloth() {
 
 static void animateCloth(int value) {
 
-	// solve system
+	// solve two time-steps
+	g_solver->solve(g_iter);
 	g_solver->solve(g_iter);
 
 	// fix points
