@@ -1,13 +1,15 @@
 #pragma once
 #include <fstream>
 #include <GL\glew.h>
-#include <glm/common.hpp>
+#include <glm/glm.hpp>
 
 class NonCopyable {
+private:
+	NonCopyable(const NonCopyable& other) = delete;
+	NonCopyable& operator=(const NonCopyable& other) = delete;
+
 public:
 	NonCopyable() {}
-	NonCopyable(const NonCopyable& other) {}
-	NonCopyable& operator=(const NonCopyable& other) { return NonCopyable(); }
 };
 
 class GLShader : public NonCopyable {
