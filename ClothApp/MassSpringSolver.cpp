@@ -71,8 +71,7 @@ MassSpringSolver::MassSpringSolver(mass_spring_system* system, float* vbuff)
 	
 	// pre-factor system matrix
 	SparseMatrix A = M + h2 * L;
-	system_matrix.analyzePattern(A);
-	system_matrix.factorize(A); 
+	system_matrix.compute(A);
 }
 
 void MassSpringSolver::globalStep() {

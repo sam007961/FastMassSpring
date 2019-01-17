@@ -42,7 +42,7 @@ private:
 	typedef Eigen::Vector3f Vector3f;
 	typedef Eigen::VectorXf VectorXf;
 	typedef Eigen::SparseMatrix<float> SparseMatrix;
-	typedef Eigen::SimplicialCholesky<Eigen::SparseMatrix<float> > Cholesky;
+	typedef Eigen::SimplicialLLT<Eigen::SparseMatrix<float> > Cholesky;
 	typedef Eigen::Map<Eigen::VectorXf> Map;
 	typedef std::pair<unsigned int, unsigned int> Edge;
 	typedef Eigen::Triplet<float> Triplet;
