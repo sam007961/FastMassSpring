@@ -15,7 +15,7 @@ set(Sources
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)
-include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
+include_directories(${OPENGL_INCLUDE_DIRS} ${GLUT_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
 
 # add Eigen, OpenMesh, glm
 include(FetchContent)
@@ -53,9 +53,14 @@ if(NOT glm_POPULATED)
   add_subdirectory(${glm_SOURCE_DIR} ${glm_BINARY_DIR})
 endif()
 
+# needed for OpenMesh on Windows
+if(WIN32)
+  add_definitions(-D_USE_MATH_DEFINES)
+endif()
+
 # copy shaders to binary directory
 file(INSTALL ClothApp/shaders/ DESTINATION shaders/)
 
 # create executable
 add_executable(fast-mass-spring ${Sources})
-target_link_libraries(fast-mass-spring ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} ${GLEW_LIBRARIES} OpenMeshCore eigen glm)
+target_link_libraries(fast-mass-spring ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${GLEW_LIBRARIES} OpenMeshCore eigen glm)
