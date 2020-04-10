@@ -56,7 +56,7 @@ static MassSpringSolver* g_solver;
 
 // System parameters
 namespace SystemParam {
-	static const int n = 61; // must be odd, n * n = n_vertices | 61
+	static const int n = 33; // must be odd, n * n = n_vertices | 61
 	static const float w = 2.0f; // width | 2.0f
 	static const float h = 0.008f; // time step, smaller for better results | 0.008f = 0.016f/2
 	static const float r = w / (n - 1) * 1.05f; // spring rest legnth
@@ -167,9 +167,13 @@ static void initShaders() {
 	GLShader phong_frag(GL_FRAGMENT_SHADER);
 	GLShader pick_frag(GL_FRAGMENT_SHADER);
 
-	basic_vert.compile(std::ifstream("./shaders/basic.vshader"));
-	phong_frag.compile(std::ifstream("./shaders/phong.fshader"));
-	pick_frag.compile(std::ifstream("./shaders/pick.fshader"));
+	auto ibasic = std::ifstream("./shaders/basic.vshader");
+	auto iphong = std::ifstream("./shaders/phong.fshader");
+	auto ifrag = std::ifstream("./shaders/pick.fshader");
+
+	basic_vert.compile(ibasic);
+	phong_frag.compile(iphong);
+	pick_frag.compile(ifrag);
 
 	g_phongShader = new PhongShader;
 	g_pickShader = new PickShader;
