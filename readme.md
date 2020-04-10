@@ -1,3 +1,5 @@
+### Fast Mass-Spring System Simulator
+
 A C++ implementation of *Fast Simulation of Mass-Spring Systems* [1], rendered with OpenGL.
 The dynamic inverse procedure described in [2] was implemented to constrain spring deformations
 and prevent the "super-elastic" effect when using large time-steps.
@@ -10,6 +12,10 @@ and prevent the "super-elastic" effect when using large time-steps.
 
 ### Building
 
+You need to install OpenGL, GLEW and GLUT on your system to build. The rest of the dependencies
+will be automatically fetched by cmake during configuration.
+
+To build, run the following commands from the root directory of the project:
 ``` bash
 mkdir build
 cd build
@@ -28,7 +34,6 @@ You will also need to copy the DLLs to the build directory if they are not avail
 ### Demonstration
 
 ![curtain_hang](https://user-images.githubusercontent.com/24758349/79005907-97ad1100-7b60-11ea-9e27-90375461beaf.gif)
-
 ![curtain_ball](https://user-images.githubusercontent.com/24758349/79005924-9d0a5b80-7b60-11ea-8ce4-d9fc683441d7.gif)
 
 ### References
