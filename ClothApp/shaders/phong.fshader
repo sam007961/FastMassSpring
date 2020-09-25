@@ -1,7 +1,6 @@
-#version 430
+#version 120
 
 in vec3 vNormal;
-out vec4 fragColor;
 
 uniform vec3 uAlbedo;
 uniform vec3 uAmbient;
@@ -18,5 +17,5 @@ void main(){
     float diffuse = max(0, dot(toLight, normal));
 
     vec3 color = diffuse * albedo + uAmbient * albedo;
-    fragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, 1.0);
 }
